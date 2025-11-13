@@ -2,17 +2,11 @@
 name: Deploy Dev Infrastructure
 
 on:
+  push:
+    branches:
+      - dev
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Selecciona el entorno'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - staging
-          - production
       apply_changes:
         description: '¿Aplicar cambios con Terraform?'
         required: true
@@ -21,32 +15,37 @@ on:
         options:
           - true
           - false
-  push:
-    branches:
-      - dev
 
 jobs:
   terraform:
     name: Terraform CI/CD
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.5.7
+          terraform_version: 1.13.5
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Initialize Terraform
+        working-directory: terraform/dev
         run: terraform init
 
-      - name: Validate Terraform
-        run: terraform validate
+      - name: Terraform Plan
+        working-directory: terraform/dev
+        run: terraform plan -out=tfplan
 
-      - name: Plan Terraform
-        run: terraform plan -var="environment=${{ github.event.inputs.environment }}"
-
-      - name: Apply Terraform (conditional)
-        if: ${{ github.event.inputs.apply_changes == 'true' }}
-        run: terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment }}"
+      - name: Terraform Apply (Manual trigger only)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.apply_changes == 'true' }}
+        working-directory: terraform/dev
+        run: terraform apply -auto-approve tfplan
