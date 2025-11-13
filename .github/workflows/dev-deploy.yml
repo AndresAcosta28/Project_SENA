@@ -3,7 +3,8 @@ name: Deploy Dev Infrastructure
 on:
   push:
     branches:
-      - dev  # Ejecutar cuando haya push a la rama 'dev'
+      - dev
+  workflow_dispatch:   # 👈 ejecución manual
 
 jobs:
   terraform:
@@ -34,3 +35,7 @@ jobs:
         working-directory: terraform/dev
         run: terraform plan -out=tfplan
 
+      - name: Terraform Apply (Manual trigger only)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: terraform/dev
+        run: terraform apply -auto-approve tfplan
