@@ -158,20 +158,21 @@ resource "aws_db_instance" "rds_mysql" {
 }
 
 # --- Elastic Beanstalk ---
-resource "aws_elastic_beanstalk_application" "backend_app" {
-  name        = "sena-backend-${random_id.suffix.hex}"
-  description = "Aplicación backend para restaurante SENA"
-}
-
 resource "aws_elastic_beanstalk_environment" "backend_env" {
-  name                = "backend-env-${random_id.suffix.hex}"
-  application         = aws_elastic_beanstalk_application.backend_app.name
-  solution_stack_name = "64bit Amazon Linux 2023 v6.1.6 running Node.js 18"
+  name        = "backend-env-${random_id.suffix.hex}"
+  application = aws_elastic_beanstalk_application.backend_app.name
+  solution_stack_name = "64bit Amazon Linux 2023 v6.6.8 running Node.js 20"
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
     value     = "aws-elasticbeanstalk-ec2-role"
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "InstanceType"
+    value     = "t2.micro"
   }
 
   tags = {
