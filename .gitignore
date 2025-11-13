@@ -1,21 +1,34 @@
+# Node.js
 node_modules/
 .env
 .env.*
+
+# Build
 dist/
 build/
 
 # Terraform
 .terraform/
-terraform.tfstate
-terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
 *.tfvars
+*.tfvars.json
+*.tfstate.backup
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
 
 # Python
 __pycache__/
 *.pyc
 
-# Editor y sistema
+# IDEs and OS
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+
