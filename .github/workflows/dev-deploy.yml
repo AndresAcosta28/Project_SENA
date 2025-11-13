@@ -3,7 +3,7 @@ name: Deploy Dev Infrastructure
 on:
   push:
     branches:
-      - main  
+      - dev
 
 jobs:
   terraform:
@@ -35,6 +35,5 @@ jobs:
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/dev'
         working-directory: terraform/dev
         run: terraform apply -auto-approve tfplan
