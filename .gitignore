@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.*
+dist/
+build/
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
