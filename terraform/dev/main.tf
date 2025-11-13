@@ -15,3 +15,12 @@ resource "aws_s3_bucket" "test_bucket" {
     Environment = "Development"
   }
 }
+
+# --- Simulación de prueba para pipeline CI/CD ---
+locals {
+  pipeline_test_message = "Prueba CI/CD Project_SENA - $(date)"
+}
+
+output "pipeline_test_message" {
+  value = local.pipeline_test_message
+}
