@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload Plan
         if: github.event_name == 'push'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan
           path: terraform/dev/tfplan
