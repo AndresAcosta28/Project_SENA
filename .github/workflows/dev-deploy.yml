@@ -3,18 +3,7 @@ name: Deploy Dev Infrastructure
 on:
   push:
     branches:
-      - dev
-      - main
-  workflow_dispatch:
-    inputs:
-      apply_changes:
-        description: '¿Aplicar cambios con Terraform?'
-        required: true
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
+      - main  
 
 jobs:
   terraform:
@@ -45,14 +34,7 @@ jobs:
         working-directory: terraform/dev
         run: terraform plan -out=tfplan
 
-      - name: Upload Plan
-        if: github.event_name == 'push'
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-plan
-          path: terraform/dev/tfplan
-
-      - name: Terraform Apply (Manual trigger only)
-        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.apply_changes == 'true' }}
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/dev'
         working-directory: terraform/dev
         run: terraform apply -auto-approve tfplan
