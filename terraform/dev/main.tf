@@ -180,3 +180,4 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Environment = var.environment
   }
 } 
+
