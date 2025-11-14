@@ -157,10 +157,16 @@ resource "aws_db_instance" "rds_mysql" {
   }
 }
 
-# --- Elastic Beanstalk ---
+# --- Elastic Beanstalk Application (FALTABA ESTO) ---
+resource "aws_elastic_beanstalk_application" "backend_app" {
+  name        = "sena-backend-${random_id.suffix.hex}"
+  description = "Aplicación backend para restaurante SENA"
+}
+
+# --- Elastic Beanstalk Environment ---
 resource "aws_elastic_beanstalk_environment" "backend_env" {
-  name        = "backend-env-${random_id.suffix.hex}"
-  application = aws_elastic_beanstalk_application.backend_app.name
+  name                = "backend-env-${random_id.suffix.hex}"
+  application         = aws_elastic_beanstalk_application.backend_app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.8 running Node.js 20"
 
   setting {
@@ -179,5 +185,4 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Name        = "Backend Env"
     Environment = var.environment
   }
-} 
-
+}

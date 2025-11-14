@@ -33,10 +33,5 @@ output "rds_database_name" {
 
 output "backend_url" {
   description = "URL del backend en Elastic Beanstalk"
-  value       = aws_elastic_beanstalk_environment.backend_env.endpoint_url
-}
-
-output "beanstalk_cname" {
-  description = "CNAME del ambiente Elastic Beanstalk"
-  value       = aws_elastic_beanstalk_environment.backend_env.cname
+  value       = "http://${aws_elastic_beanstalk_environment.backend_env.cname}"
 }
