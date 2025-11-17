@@ -12,6 +12,14 @@ data "aws_vpc" "default" {
   default = true
 }
 
+# --- Obtener subnets de la VPC por defecto ---
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
 # --- S3 Bucket para frontend ---
 resource "aws_s3_bucket" "frontend_bucket" {
   bucket = "sena-frontend-${random_id.suffix.hex}"
@@ -274,12 +282,6 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
     value     = "t3.micro"
-  }
-
-  setting {
-    namespace = "aws:ec2:vpc"
-    name      = "VPCId"
-    value     = data.aws_vpc.default.id  # 👈 AGREGADO
   }
 
   # Environment vars para RDS
