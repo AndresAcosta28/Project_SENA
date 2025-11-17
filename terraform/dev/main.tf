@@ -202,8 +202,8 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
 resource "aws_elastic_beanstalk_environment" "backend_env" {
   name                = "backend-env-${random_id.suffix.hex}"
   application         = aws_elastic_beanstalk_application.backend_app.name
-  solution_stack_name = "64bit Amazon Linux 2 v3.5.4 running Python 3.11"
-
+  solution_stack_name = "64bit Amazon Linux 2023 v4.2.0 running Python 3.11"
+  
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
