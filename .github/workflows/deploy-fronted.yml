@@ -1,12 +1,12 @@
-name: Deploy Frontend to S3
+name: Deploy Frontend to S3 & CloudFront
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'frontend/**'  # Solo se activa si cambias archivos del frontend
-  workflow_dispatch:  # Permite ejecutar manualmente
+      - 'frontend/**'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -28,38 +28,34 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.5
-          terraform_wrapper: false  # Importante para obtener outputs limpios
+          terraform_wrapper: false
 
-      - name: Initialize Terraform
+      - name: Terraform Init
         working-directory: terraform/dev
-        run: terraform init
+        run: terraform init -input=false
 
-      - name: Get Terraform Outputs
+      - name: Extract Terraform Outputs
         id: tf_outputs
         working-directory: terraform/dev
         run: |
-          S3_BUCKET=$(terraform output -raw frontend_bucket_name)
-          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
-          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
-          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
+          echo "bucket=$(terraform output -raw frontend_s3_bucket)" >> $GITHUB_OUTPUT
+          echo "cf_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
 
-      - name: Sync HTML/CSS/JS to S3
+      - name: Sync Frontend to S3
         run: |
-          aws s3 sync frontend/ s3://${{ steps.tf_outputs.outputs.s3_bucket }} \
+          aws s3 sync frontend/ s3://${{ steps.tf_outputs.outputs.bucket }} \
             --delete \
-            --exclude ".git/*" \
-            --exclude ".gitignore" \
-            --exclude "README.md" \
+            --exclude "*.md" \
             --cache-control "public, max-age=86400"
 
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
+            --distribution-id ${{ steps.tf_outputs.outputs.cf_id }} \
             --paths "/*"
 
       - name: Deployment Summary
         run: |
-          echo "✅ Frontend deployed successfully!"
-          echo "📦 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          echo "🌐 CloudFront ID: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
+          echo "🚀 FRONTEND DEPLOYED!"
+          echo "📦 Bucket: ${{ steps.tf_outputs.outputs.bucket }}"
+          echo "🌐 CloudFront ID: ${{ steps.tf_outputs.outputs.cf_id }}"
