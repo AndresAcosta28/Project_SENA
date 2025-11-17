@@ -116,7 +116,6 @@ resource "aws_security_group" "rds_sg" {
   name        = "sena-rds-sg-${random_id.suffix.hex}"
   description = "Security group para RDS MySQL"
 
-  # Permitir conexión desde Elastic Beanstalk
   ingress {
     from_port   = 3306
     to_port     = 3306
@@ -143,7 +142,6 @@ resource "aws_security_group" "backend_sg" {
   name        = "sena-backend-sg-${random_id.suffix.hex}"
   description = "Security group para Elastic Beanstalk"
 
-  # HTTP desde cualquier lugar (para que CloudFront y usuarios accedan)
   ingress {
     from_port   = 80
     to_port     = 80
@@ -152,7 +150,6 @@ resource "aws_security_group" "backend_sg" {
     description = "HTTP access"
   }
 
-  # HTTPS desde cualquier lugar
   ingress {
     from_port   = 443
     to_port     = 443
@@ -185,7 +182,7 @@ resource "aws_db_instance" "rds_mysql" {
   username             = var.db_username
   password             = var.db_password
   skip_final_snapshot  = true
-  publicly_accessible  = true  # INSEGURO - Solo para desarrollo/académico
+  publicly_accessible  = true
   
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
@@ -225,7 +222,7 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     value     = aws_security_group.backend_sg.id
   }
 
-  # Variables de entorno para Flask conectarse a MySQL
+  # Variables de entorno RDS
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "DB_HOST"
@@ -261,28 +258,3 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Environment = var.environment
   }
 }
-
-# --- Outputs ---
-output "frontend_cloudfront_url" {
-  description = "URL de CloudFront para acceder al frontend"
-  value       = "https://${aws_cloudfront_distribution.frontend_cdn.domain_name}"
-}
-
-output "frontend_s3_bucket" {
-  description = "Nombre del bucket S3 para deploy del frontend"
-  value       = aws_s3_bucket.frontend_bucket.id
-}
-
-output "backend_url" {
-  description = "URL de Elastic Beanstalk para el backend API"
-  value       = "http://${aws_elastic_beanstalk_environment.backend_env.endpoint_url}"
-}
-
-output "database_endpoint" {
-  description = "Endpoint de RDS MySQL"
-  value       = aws_db_instance.rds_mysql.address
-}
-
-output "database_port" {
-  description = "Puerto de RDS MySQL"
-  value       = aws_db_instance.rds_mysql.port
