@@ -213,6 +213,16 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
   description = "Aplicación backend Flask para restaurante SENA"
 }
 
+# --- Esperar a que AWS propague el Security Group ---
+resource "time_sleep" "wait_for_sg_propagation" {
+  depends_on = [
+    aws_security_group.backend_sg,
+    aws_security_group.rds_sg
+  ]
+  
+  create_duration = "30s"
+}
+
 # --- IAM Role para Elastic Beanstalk (si no existe) ---
 resource "aws_iam_instance_profile" "eb_ec2_profile" {
   name = "sena-eb-ec2-profile-${random_id.suffix.hex}"
@@ -258,19 +268,12 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
 
   solution_stack_name = "64bit Amazon Linux 2023 v4.7.5 running Python 3.11"
 
-  # 👇 CAMBIADO: Usar lifecycle para forzar creación después de SG
+  # 👇 AGREGADO: Esperar propagación del SG
   depends_on = [
-    aws_security_group.backend_sg,
-    aws_security_group.rds_sg,
+    time_sleep.wait_for_sg_propagation,
     aws_db_instance.rds_mysql,
     aws_iam_instance_profile.eb_ec2_profile
   ]
-
-  setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name      = "SecurityGroups"
-    value     = aws_security_group.backend_sg.id
-  }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -282,6 +285,13 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
     value     = "t3.micro"
+  }
+
+  # 👇 OPCIONAL: Permitir acceso desde anywhere
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "AssociatePublicIpAddress"
+    value     = "true"
   }
 
   # Environment vars para RDS
