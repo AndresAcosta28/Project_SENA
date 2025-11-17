@@ -7,6 +7,11 @@ resource "random_id" "suffix" {
   byte_length = 4
 }
 
+# --- Obtener VPC por defecto ---
+data "aws_vpc" "default" {
+  default = true
+}
+
 # --- S3 Bucket para frontend ---
 resource "aws_s3_bucket" "frontend_bucket" {
   bucket = "sena-frontend-${random_id.suffix.hex}"
@@ -115,12 +120,13 @@ resource "aws_cloudfront_distribution" "frontend_cdn" {
 resource "aws_security_group" "rds_sg" {
   name        = "sena-rds-sg-${random_id.suffix.hex}"
   description = "Security group para RDS MySQL"
+  vpc_id      = data.aws_vpc.default.id  # 👈 AGREGADO
 
   ingress {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # INSEGURO - Solo para desarrollo
+    cidr_blocks = ["0.0.0.0/0"]
     description = "MySQL access from anywhere"
   }
 
@@ -141,6 +147,7 @@ resource "aws_security_group" "rds_sg" {
 resource "aws_security_group" "backend_sg" {
   name        = "sena-backend-sg-${random_id.suffix.hex}"
   description = "Security group para Elastic Beanstalk"
+  vpc_id      = data.aws_vpc.default.id  # 👈 AGREGADO
 
   ingress {
     from_port   = 80
@@ -198,16 +205,57 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
   description = "Aplicación backend Flask para restaurante SENA"
 }
 
+# --- IAM Role para Elastic Beanstalk (si no existe) ---
+resource "aws_iam_instance_profile" "eb_ec2_profile" {
+  name = "sena-eb-ec2-profile-${random_id.suffix.hex}"
+  role = aws_iam_role.eb_ec2_role.name
+}
+
+resource "aws_iam_role" "eb_ec2_role" {
+  name = "sena-eb-ec2-role-${random_id.suffix.hex}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eb_web_tier" {
+  role       = aws_iam_role.eb_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWebTier"
+}
+
+resource "aws_iam_role_policy_attachment" "eb_worker_tier" {
+  role       = aws_iam_role.eb_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
+}
+
+resource "aws_iam_role_policy_attachment" "eb_multicontainer_docker" {
+  role       = aws_iam_role.eb_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkMulticontainerDocker"
+}
+
+# --- Elastic Beanstalk Environment ---
 resource "aws_elastic_beanstalk_environment" "backend_env" {
   name        = "backend-env-${random_id.suffix.hex}"
   application = aws_elastic_beanstalk_application.backend_app.name
 
   solution_stack_name = "64bit Amazon Linux 2023 v4.7.5 running Python 3.11"
 
+  # 👇 CAMBIADO: Usar lifecycle para forzar creación después de SG
   depends_on = [
-    aws_security_group.backend_sg,    # 👈 ESTA ES LA CLAVE
+    aws_security_group.backend_sg,
     aws_security_group.rds_sg,
-    aws_db_instance.rds_mysql
+    aws_db_instance.rds_mysql,
+    aws_iam_instance_profile.eb_ec2_profile
   ]
 
   setting {
@@ -219,13 +267,19 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
-    value     = "aws-elasticbeanstalk-ec2-role"
+    value     = aws_iam_instance_profile.eb_ec2_profile.name  # 👈 CAMBIADO
   }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
     value     = "t3.micro"
+  }
+
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "VPCId"
+    value     = data.aws_vpc.default.id  # 👈 AGREGADO
   }
 
   # Environment vars para RDS
