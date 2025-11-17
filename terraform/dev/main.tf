@@ -17,7 +17,7 @@ resource "aws_s3_bucket" "frontend_bucket" {
   }
 }
 
-# --- Configuración de website (separada) ---
+# --- Configuración de website ---
 resource "aws_s3_bucket_website_configuration" "frontend_website" {
   bucket = aws_s3_bucket.frontend_bucket.id
 
@@ -116,11 +116,13 @@ resource "aws_security_group" "rds_sg" {
   name        = "sena-rds-sg-${random_id.suffix.hex}"
   description = "Security group para RDS MySQL"
 
+  # Permitir conexión desde Elastic Beanstalk
   ingress {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # ⚠️ Solo para desarrollo
+    cidr_blocks = ["0.0.0.0/0"]  # INSEGURO - Solo para desarrollo/académico
+    description = "MySQL access from anywhere - CAMBIAR EN PRODUCCIÓN"
   }
 
   egress {
@@ -136,18 +138,54 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
+# --- Security Group para Elastic Beanstalk ---
+resource "aws_security_group" "backend_sg" {
+  name        = "sena-backend-sg-${random_id.suffix.hex}"
+  description = "Security group para Elastic Beanstalk"
+
+  # HTTP desde cualquier lugar (para que CloudFront y usuarios accedan)
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP access"
+  }
+
+  # HTTPS desde cualquier lugar
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS access"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "Backend Security Group"
+    Environment = var.environment
+  }
+}
+
 # --- RDS MySQL ---
 resource "aws_db_instance" "rds_mysql" {
   identifier           = "sena-db-${random_id.suffix.hex}"
   allocated_storage    = 20
   engine               = "mysql"
   engine_version       = "8.0"
-  instance_class       = "db.t2.micro"
+  instance_class       = "db.t3.micro"
   db_name              = "senadb"
   username             = var.db_username
   password             = var.db_password
   skip_final_snapshot  = true
-  publicly_accessible  = true
+  publicly_accessible  = true  # INSEGURO - Solo para desarrollo/académico
   
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
@@ -157,17 +195,17 @@ resource "aws_db_instance" "rds_mysql" {
   }
 }
 
-# --- Elastic Beanstalk Application (FALTABA ESTO) ---
+# --- Elastic Beanstalk Application ---
 resource "aws_elastic_beanstalk_application" "backend_app" {
   name        = "sena-backend-${random_id.suffix.hex}"
-  description = "Aplicación backend para restaurante SENA"
+  description = "Aplicación backend Flask para restaurante SENA"
 }
 
 # --- Elastic Beanstalk Environment ---
 resource "aws_elastic_beanstalk_environment" "backend_env" {
   name                = "backend-env-${random_id.suffix.hex}"
   application         = aws_elastic_beanstalk_application.backend_app.name
-  solution_stack_name = "64bit Amazon Linux 2023 v6.6.8 running Node.js 20"
+  solution_stack_name = "64bit Amazon Linux 2023 v4.3.2 running Python 3.11"
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -178,7 +216,44 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
-    value     = "t2.micro"
+    value     = "t3.micro"
+  }
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "SecurityGroups"
+    value     = aws_security_group.backend_sg.id
+  }
+
+  # Variables de entorno para Flask conectarse a MySQL
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_HOST"
+    value     = aws_db_instance.rds_mysql.address
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_USER"
+    value     = var.db_username
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_PASSWORD"
+    value     = var.db_password
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_NAME"
+    value     = "senadb"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "DB_PORT"
+    value     = "3306"
   }
 
   tags = {
@@ -187,33 +262,27 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
   }
 }
 
-# --- Amplify App ---
-resource "aws_amplify_app" "frontend_amplify" {
-  name       = "sena-frontend-${random_id.suffix.hex}"
-  repository = var.amplify_repo_url   # URL del repo (ej: GitHub)
-  oauth_token = var.github_token      # Token para conectar GitHub
-
-  environment_variables = {
-    ENVIRONMENT = var.environment
-  }
-
-  enable_branch_auto_build = true
-
-  tags = {
-    Name        = "Frontend Amplify"
-    Environment = var.environment
-  }
+# --- Outputs ---
+output "frontend_cloudfront_url" {
+  description = "URL de CloudFront para acceder al frontend"
+  value       = "https://${aws_cloudfront_distribution.frontend_cdn.domain_name}"
 }
 
-# --- Amplify Branch ---
-resource "aws_amplify_branch" "frontend_branch" {
-  app_id      = aws_amplify_app.frontend_amplify.id
-  branch_name = var.amplify_branch_name # ej: "main"
-
-  enable_auto_build = true
-
-  tags = {
-    Name        = "Amplify Branch"
-    Environment = var.environment
-  }
+output "frontend_s3_bucket" {
+  description = "Nombre del bucket S3 para deploy del frontend"
+  value       = aws_s3_bucket.frontend_bucket.id
 }
+
+output "backend_url" {
+  description = "URL de Elastic Beanstalk para el backend API"
+  value       = "http://${aws_elastic_beanstalk_environment.backend_env.endpoint_url}"
+}
+
+output "database_endpoint" {
+  description = "Endpoint de RDS MySQL"
+  value       = aws_db_instance.rds_mysql.address
+}
+
+output "database_port" {
+  description = "Puerto de RDS MySQL"
+  value       = aws_db_instance.rds_mysql.port

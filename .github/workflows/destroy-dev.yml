@@ -1,23 +1,30 @@
-name: Deploy Dev Infrastructure
+name: Destroy Dev Infrastructure
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:  # Permite ejecutar manualmente desde GitHub
+  workflow_dispatch:  # Solo se ejecuta manualmente desde GitHub
 
 jobs:
-  terraform:
-    name: Terraform CI/CD
+  terraform-destroy:
+    name: Terraform Destroy
     runs-on: ubuntu-latest
     timeout-minutes: 30
     
-    # Evita ejecuciones concurrentes que causan locks
+    # Solo se ejecuta si existe el secret DESTROY_DEV
+    if: ${{ secrets.DESTROY_DEV == 'Destroy' || secrets.DESTROY_DEV == 'destroy' }}
+    
+    # Usa el mismo grupo que deploy-dev para evitar conflictos
     concurrency:
       group: terraform-dev
       cancel-in-progress: false
 
     steps:
+      - name: Warning - Destruction in progress
+        run: |
+          echo "WARNING: The secret DESTROY_DEV is present"
+          echo "Destroying DEV infrastructure in 10 seconds..."
+          echo "Cancel this workflow now if this was a mistake"
+          sleep 10
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -37,29 +44,17 @@ jobs:
         working-directory: terraform/dev
         run: terraform init
 
-      - name: Terraform Plan
-        id: plan
+      - name: Terraform Destroy
         working-directory: terraform/dev
         env:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
           TF_VAR_github_token: ${{ secrets.TOKEN_AMPLIFY }}
           TF_VAR_amplify_repo_url: ${{ secrets.AMPLIFY_REPO_URL }}
           TF_VAR_amplify_branch_name: ${{ secrets.AMPLIFY_BRANCH_NAME }}
-        run: terraform plan -out=tfplan -input=false
-        continue-on-error: true
+        run: terraform destroy -auto-approve
 
-      - name: Check Plan Status
-        if: steps.plan.outcome == 'failure'
+      - name: Destruction complete
         run: |
-          echo "Terraform plan failed"
-          exit 1
-
-      - name: Terraform Apply
-        if: steps.plan.outcome == 'success'
-        working-directory: terraform/dev
-        env:
-          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
-          TF_VAR_github_token: ${{ secrets.TOKEN_AMPLIFY }}
-          TF_VAR_amplify_repo_url: ${{ secrets.AMPLIFY_REPO_URL }}
-          TF_VAR_amplify_branch_name: ${{ secrets.AMPLIFY_BRANCH_NAME }}
-        run: terraform apply -auto-approve tfplan
+          echo "DEV infrastructure destroyed successfully"
+          echo "IMPORTANT: Delete the DESTROY_DEV secret from GitHub immediately"
+          echo "Go to: Settings > Secrets and variables > Actions > DESTROY_DEV > Delete"
