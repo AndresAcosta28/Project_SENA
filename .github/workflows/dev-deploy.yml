@@ -4,11 +4,18 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Permite ejecutar manualmente desde GitHub
 
 jobs:
   terraform:
     name: Terraform CI/CD
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    # Evita ejecuciones concurrentes que causan locks
+    concurrency:
+      group: terraform-dev
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
@@ -31,9 +38,22 @@ jobs:
         run: terraform init
 
       - name: Terraform Plan
+        id: plan
         working-directory: terraform/dev
-        run: terraform plan -out=tfplan
+        env:
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+        run: terraform plan -out=tfplan -input=false
+        continue-on-error: true
+
+      - name: Check Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "❌ Terraform plan failed"
+          exit 1
 
       - name: Terraform Apply
+        if: steps.plan.outcome == 'success'
         working-directory: terraform/dev
+        env:
+          TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
         run: terraform apply -auto-approve tfplan

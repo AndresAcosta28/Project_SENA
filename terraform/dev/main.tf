@@ -186,3 +186,34 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Environment = var.environment
   }
 }
+
+# --- Amplify App ---
+resource "aws_amplify_app" "frontend_amplify" {
+  name       = "sena-frontend-${random_id.suffix.hex}"
+  repository = var.amplify_repo_url   # URL del repo (ej: GitHub)
+  oauth_token = var.github_token      # Token para conectar GitHub
+
+  environment_variables = {
+    ENVIRONMENT = var.environment
+  }
+
+  enable_branch_auto_build = true
+
+  tags = {
+    Name        = "Frontend Amplify"
+    Environment = var.environment
+  }
+}
+
+# --- Amplify Branch ---
+resource "aws_amplify_branch" "frontend_branch" {
+  app_id      = aws_amplify_app.frontend_amplify.id
+  branch_name = var.amplify_branch_name # ej: "main"
+
+  enable_auto_build = true
+
+  tags = {
+    Name        = "Amplify Branch"
+    Environment = var.environment
+  }
+}
