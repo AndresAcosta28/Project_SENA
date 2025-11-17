@@ -1,25 +1,46 @@
-# --- Outputs ---
+# ================================
+#           OUTPUTS
+# ================================
+
+# --- Frontend ---
 output "frontend_cloudfront_url" {
-  description = "URL de CloudFront para acceder al frontend"
+  description = "URL pública del frontend vía CloudFront"
   value       = "https://${aws_cloudfront_distribution.frontend_cdn.domain_name}"
 }
 
 output "frontend_s3_bucket" {
-  description = "Nombre del bucket S3 para deploy del frontend"
+  description = "Bucket S3 donde se despliega el frontend"
   value       = aws_s3_bucket.frontend_bucket.id
 }
 
-output "backend_url" {
-  description = "URL de Elastic Beanstalk para el backend API"
-  value       = "http://${aws_elastic_beanstalk_environment.backend_env.endpoint_url}"
+output "cloudfront_distribution_id" {
+  description = "ID de la distribución de CloudFront (para invalidación)"
+  value       = aws_cloudfront_distribution.frontend_cdn.id
 }
 
+# --- Backend (Elastic Beanstalk) ---
+output "backend_app_name" {
+  description = "Nombre de la aplicación de Elastic Beanstalk"
+  value       = aws_elastic_beanstalk_application.backend_app.name
+}
+
+output "backend_env_name" {
+  description = "Nombre del environment de Elastic Beanstalk"
+  value       = aws_elastic_beanstalk_environment.backend_env.name
+}
+
+output "backend_url" {
+  description = "Dominio público del backend en Elastic Beanstalk"
+  value       = "http://${aws_elastic_beanstalk_environment.backend_env.cname}"
+}
+
+# --- Base de Datos ---
 output "database_endpoint" {
-  description = "Endpoint de RDS MySQL"
+  description = "Endpoint del servidor RDS MySQL"
   value       = aws_db_instance.rds_mysql.address
 }
 
 output "database_port" {
-  description = "Puerto de RDS MySQL"
+  description = "Puerto del servidor MySQL"
   value       = aws_db_instance.rds_mysql.port
 }
