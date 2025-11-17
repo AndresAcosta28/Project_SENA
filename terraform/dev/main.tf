@@ -199,11 +199,22 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
 }
 
 resource "aws_elastic_beanstalk_environment" "backend_env" {
-  name                = "backend-env-${random_id.suffix.hex}"
-  application         = aws_elastic_beanstalk_application.backend_app.name
+  name        = "backend-env-${random_id.suffix.hex}"
+  application = aws_elastic_beanstalk_application.backend_app.name
 
-  # ✔ Stack correcto para Flask en us-east-1
   solution_stack_name = "64bit Amazon Linux 2023 v4.7.5 running Python 3.11"
+
+  depends_on = [
+    aws_security_group.backend_sg,    # 👈 ESTA ES LA CLAVE
+    aws_security_group.rds_sg,
+    aws_db_instance.rds_mysql
+  ]
+
+  setting {
+    namespace = "aws:autoscaling:launchconfiguration"
+    name      = "SecurityGroups"
+    value     = aws_security_group.backend_sg.id
+  }
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -217,13 +228,7 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     value     = "t3.micro"
   }
 
-  setting {
-    namespace = "aws:autoscaling:launchconfiguration"
-    name      = "SecurityGroups"
-    value     = aws_security_group.backend_sg.id
-  }
-
-  # Variables de entorno conectando a RDS
+  # Environment vars para RDS
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "DB_HOST"
