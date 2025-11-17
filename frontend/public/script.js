@@ -1,14 +1,18 @@
-document.getElementById("check-backend").addEventListener("click", async () => {
-    const url = "http://backend-env-6e3f16d0.eba-prjwqm57.us-east-1.elasticbeanstalk.com";
+document.addEventListener("DOMContentLoaded", () => {
+    const boton = document.getElementById("check-backend");
+    const salida = document.getElementById("backend-response");
 
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
+    boton.addEventListener("click", async () => {
+        salida.textContent = "⌛ Conectando al backend...";
 
-        document.getElementById("backend-response").innerText =
-            "Respuesta del backend: " + data.message;
-    } catch (error) {
-        document.getElementById("backend-response").innerText =
-            "Error al contactar el backend ❌ " + error;
-    }
+        try {
+            const response = await fetch("http://backend-env-6e3f16d0.eba-prjwqm57.us-east-1.elasticbeanstalk.com/");
+            const data = await response.json();
+
+            salida.textContent = "Respuesta: " + data.message;
+
+        } catch (error) {
+            salida.textContent = "Error al conectar ❌ " + error;
+        }
+    });
 });
