@@ -193,12 +193,17 @@ resource "aws_db_instance" "rds_mysql" {
 }
 
 # --- Elastic Beanstalk Application ---
+resource "aws_elastic_beanstalk_application" "backend_app" {
+  name        = "sena-backend-${random_id.suffix.hex}"
+  description = "Aplicación backend Flask para restaurante SENA"
+}
+
 resource "aws_elastic_beanstalk_environment" "backend_env" {
   name                = "backend-env-${random_id.suffix.hex}"
   application         = aws_elastic_beanstalk_application.backend_app.name
 
   # ✔ Stack correcto para Flask en us-east-1
-  solution_stack_name = "64bit Amazon Linux 2 v3.3.14 running Python 3.8"
+  solution_stack_name = "64bit Amazon Linux 2023 v4.7.5 running Python 3.11"
 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
