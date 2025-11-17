@@ -1,0 +1,104 @@
+name: Deploy Backend to Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'  # Solo se activa si cambias archivos del backend
+  workflow_dispatch:  # Permite ejecutar manualmente
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.5
+          terraform_wrapper: false
+
+      - name: Initialize Terraform
+        working-directory: terraform/dev
+        run: terraform init
+
+      - name: Get Terraform Outputs
+        id: tf_outputs
+        working-directory: terraform/dev
+        run: |
+          EB_APP=$(terraform output -raw backend_app_name)
+          EB_ENV=$(terraform output -raw backend_env_name)
+          echo "eb_app=$EB_APP" >> $GITHUB_OUTPUT
+          echo "eb_env=$EB_ENV" >> $GITHUB_OUTPUT
+
+      - name: Generate deployment timestamp
+        id: timestamp
+        run: echo "version=$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Create deployment package
+        working-directory: backend
+        run: |
+          zip -r ../deploy-${{ steps.timestamp.outputs.version }}.zip . \
+            -x "*.git*" \
+            -x "*__pycache__*" \
+            -x "*.pyc" \
+            -x "venv/*" \
+            -x ".env"
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ steps.tf_outputs.outputs.eb_app }} \
+            --version-label v-${{ steps.timestamp.outputs.version }} \
+            --source-bundle S3Bucket="${{ steps.tf_outputs.outputs.eb_app }}-versions",S3Key="deploy-${{ steps.timestamp.outputs.version }}.zip" \
+            --description "Deploy from GitHub Actions - commit ${GITHUB_SHA::7}" || \
+          aws s3 cp deploy-${{ steps.timestamp.outputs.version }}.zip \
+            s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)/
+
+          aws elasticbeanstalk update-environment \
+            --application-name ${{ steps.tf_outputs.outputs.eb_app }} \
+            --environment-name ${{ steps.tf_outputs.outputs.eb_env }} \
+            --version-label v-${{ steps.timestamp.outputs.version }}
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for environment to update..."
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ steps.tf_outputs.outputs.eb_app }} \
+            --environment-name ${{ steps.tf_outputs.outputs.eb_env }} \
+            --timeout 900
+
+      - name: Get Environment URL
+        id: env_url
+        run: |
+          URL=$(aws elasticbeanstalk describe-environments \
+            --application-name ${{ steps.tf_outputs.outputs.eb_app }} \
+            --environment-names ${{ steps.tf_outputs.outputs.eb_env }} \
+            --query "Environments[0].CNAME" \
+            --output text)
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "✅ Backend deployed successfully!"
+          echo "📦 Version: v-${{ steps.timestamp.outputs.version }}"
+          echo "🚀 Application: ${{ steps.tf_outputs.outputs.eb_app }}"
+          echo "🌍 Environment: ${{ steps.tf_outputs.outputs.eb_env }}"
+          echo "🔗 URL: http://${{ steps.env_url.outputs.url }}"
