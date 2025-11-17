@@ -200,13 +200,10 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
 
 # --- Elastic Beanstalk Environment ---
 resource "aws_elastic_beanstalk_environment" "backend_env" {
-  name        = "backend-env-${random_id.suffix.hex}"
-  application = aws_elastic_beanstalk_application.backend_app.name
+  name                = "backend-env-${random_id.suffix.hex}"
+  application         = aws_elastic_beanstalk_application.backend_app.name
+  solution_stack_name = "64bit Amazon Linux 2 v3.5.4 running Python 3.11"
 
-  # ❗ Plataforma correcta para Python + AL2023
-  solution_stack_name = "64bit Amazon Linux 2023 running Python 3.9"
-
-  # Configuración de instancia
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
@@ -225,7 +222,7 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     value     = aws_security_group.backend_sg.id
   }
 
-  # Variables de entorno del backend
+  # Variables de entorno RDS
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "DB_HOST"
