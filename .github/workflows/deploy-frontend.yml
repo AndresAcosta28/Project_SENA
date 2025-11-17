@@ -1,21 +1,26 @@
-name: Deploy Frontend to S3 + CDN
+name: Deploy Backend to Elastic Beanstalk
 
 on:
   push:
     branches:
       - main
     paths:
-      - "frontend/**"   # Solo se ejecuta cuando cambias archivos del frontend
-  workflow_dispatch:     # Permite ejecutar manualmente
+      - "backend/**"
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -30,37 +35,62 @@ jobs:
           terraform_version: 1.13.5
           terraform_wrapper: false
 
-      - name: Initialize Terraform
-        working-directory: terraform/dev
-        run: terraform init -upgrade
-
-      - name: Get Terraform Outputs (Bucket + CloudFront)
-        id: tf_outputs
+      - name: Terraform Init + Refresh
         working-directory: terraform/dev
         run: |
-          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
-          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
-          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
-          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
+          rm -rf .terraform
+          terraform init -upgrade
+          terraform refresh
 
-      - name: Sync frontend files to S3
+      - name: Get Terraform Outputs
+        id: tf
+        working-directory: terraform/dev
         run: |
-          echo "📦 Subiendo archivos al bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          aws s3 sync frontend/public/ s3://${{ steps.tf_outputs.outputs.s3_bucket }} \
-            --delete \
-            --exclude "*.md" \
-            --cache-control "public, max-age=86400"
+          echo "app=$(terraform output -raw backend_app_name)" >> $GITHUB_OUTPUT
+          echo "env=$(terraform output -raw backend_env_name)" >> $GITHUB_OUTPUT
 
-      - name: Invalidate CloudFront cache
+      - name: Debug Terraform Outputs
         run: |
-          echo "🚀 Invalidando caché de CloudFront..."
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
-            --paths "/*"
+          echo "📌 App: '${{ steps.tf.outputs.app }}'"
+          echo "📌 Env: '${{ steps.tf.outputs.env }}'"
+          if [ -z "${{ steps.tf.outputs.app }}" ] || [ -z "${{ steps.tf.outputs.env }}" ]; then
+            echo "❌ ERROR: Terraform outputs vinieron vacíos"
+            exit 1
+          fi
+
+      - name: Generate version label
+        id: version
+        run: echo "label=v-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Create ZIP package
+        working-directory: backend
+        run: |
+          zip -r ../deploy.zip . \
+            -x "*.git*" "*.pyc" "__pycache__/*" "venv/*" ".env"
+
+      - name: Upload ZIP to Elastic Beanstalk Bucket
+        run: |
+          EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          echo "📦 EB Bucket: $EB_BUCKET"
+          aws s3 cp deploy.zip s3://$EB_BUCKET/${{ steps.version.outputs.label }}.zip
+
+      - name: Create EB Application Version
+        run: |
+          EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ steps.tf.outputs.app }} \
+            --version-label ${{ steps.version.outputs.label }} \
+            --source-bundle S3Bucket=$EB_BUCKET,S3Key="${{ steps.version.outputs.label }}.zip"
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk update-environment \
+            --environment-name ${{ steps.tf.outputs.env }} \
+            --version-label ${{ steps.version.outputs.label }}
 
       - name: Deployment Summary
         run: |
-          echo "✅ FRONTEND DEPLOYED SUCCESSFULLY!"
-          echo "🌐 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          echo "🌍 CloudFront ID: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
-          echo "🔗 URL: https://${{ steps.tf_outputs.outputs.cloudfront_id }}.cloudfront.net"
+          echo "🚀 BACKEND DEPLOYED!"
+          echo "📦 Application: ${{ steps.tf.outputs.app }}"
+          echo "🌍 Environment: ${{ steps.tf.outputs.env }}"
+          echo "🔖 Version: ${{ steps.version.outputs.label }}"
