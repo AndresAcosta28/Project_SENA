@@ -1,12 +1,12 @@
-name: Deploy Frontend to S3 & CloudFront
+name: Deploy Frontend to S3 + CDN
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'frontend/**'
-  workflow_dispatch:
+      - "frontend/**"   # Solo se ejecuta cuando cambias archivos del frontend
+  workflow_dispatch:     # Permite ejecutar manualmente
 
 jobs:
   deploy:
@@ -30,32 +30,37 @@ jobs:
           terraform_version: 1.13.5
           terraform_wrapper: false
 
-      - name: Terraform Init
+      - name: Initialize Terraform
         working-directory: terraform/dev
-        run: terraform init -input=false
+        run: terraform init -upgrade
 
-      - name: Extract Terraform Outputs
+      - name: Get Terraform Outputs (Bucket + CloudFront)
         id: tf_outputs
         working-directory: terraform/dev
         run: |
-          echo "bucket=$(terraform output -raw frontend_s3_bucket)" >> $GITHUB_OUTPUT
-          echo "cf_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
+          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
+          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
 
-      - name: Sync Frontend to S3
+      - name: Sync frontend files to S3
         run: |
-          aws s3 sync frontend/public/ s3://${{ steps.tf_outputs.outputs.s3_bucket }}
+          echo "📦 Subiendo archivos al bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
+          aws s3 sync frontend/public/ s3://${{ steps.tf_outputs.outputs.s3_bucket }} \
             --delete \
             --exclude "*.md" \
             --cache-control "public, max-age=86400"
 
-      - name: Invalidate CloudFront Cache
+      - name: Invalidate CloudFront cache
         run: |
+          echo "🚀 Invalidando caché de CloudFront..."
           aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.tf_outputs.outputs.cf_id }} \
+            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
             --paths "/*"
 
       - name: Deployment Summary
         run: |
-          echo "🚀 FRONTEND DEPLOYED!"
-          echo "📦 Bucket: ${{ steps.tf_outputs.outputs.bucket }}"
-          echo "🌐 CloudFront ID: ${{ steps.tf_outputs.outputs.cf_id }}"
+          echo "✅ FRONTEND DEPLOYED SUCCESSFULLY!"
+          echo "🌐 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
+          echo "🌍 CloudFront ID: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
+          echo "🔗 URL: https://${{ steps.tf_outputs.outputs.cloudfront_id }}.cloudfront.net"
