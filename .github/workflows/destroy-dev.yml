@@ -8,21 +8,41 @@ jobs:
     name: Terraform Destroy
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
-    # Solo se ejecuta si existe el secret DESTROY_DEV
-    if: ${{ secrets.DESTROY_DEV == 'Destroy' || secrets.DESTROY_DEV == 'destroy' }}
-    
-    # Usa el mismo grupo que deploy-dev para evitar conflictos
+
+    # Usa el mismo grupo que deploy-dev para evitar locks
     concurrency:
       group: terraform-dev
       cancel-in-progress: false
 
     steps:
-      - name: Warning - Destruction in progress
+
+      # --------------------------------------------------
+      # VALIDACIÓN DEL SECRET DESTROY_DEV
+      # --------------------------------------------------
+      - name: Validate destroy secret
+        id: validate_secret
         run: |
-          echo "WARNING: The secret DESTROY_DEV is present"
-          echo "Destroying DEV infrastructure in 10 seconds..."
-          echo "Cancel this workflow now if this was a mistake"
+          if [[ "${{ secrets.DESTROY_DEV }}" == "Destroy" || "${{ secrets.DESTROY_DEV }}" == "destroy" ]]; then
+            echo "VALID=true" >> $GITHUB_OUTPUT
+          else
+            echo "VALID=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop if secret is invalid
+        if: steps.validate_secret.outputs.VALID == 'false'
+        run: |
+          echo "❌ ERROR: DESTROY_DEV secret is missing or incorrect."
+          echo "To run this workflow, set: DESTROY_DEV=Destroy"
+          exit 1
+
+      # --------------------------------------------------
+      # EJECUCIÓN PROTEGIDA DEL DESTROY
+      # --------------------------------------------------
+      - name: Warning - Destruction in progress
+        if: steps.validate_secret.outputs.VALID == 'true'
+        run: |
+          echo "⚠ WARNING: Dev infrastructure will be destroyed in 10 seconds..."
+          echo "Cancel now if this was a mistake!"
           sleep 10
 
       - name: Checkout repository
@@ -45,6 +65,7 @@ jobs:
         run: terraform init
 
       - name: Terraform Destroy
+        if: steps.validate_secret.outputs.VALID == 'true'
         working-directory: terraform/dev
         env:
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
@@ -54,7 +75,7 @@ jobs:
         run: terraform destroy -auto-approve
 
       - name: Destruction complete
+        if: steps.validate_secret.outputs.VALID == 'true'
         run: |
-          echo "DEV infrastructure destroyed successfully"
-          echo "IMPORTANT: Delete the DESTROY_DEV secret from GitHub immediately"
-          echo "Go to: Settings > Secrets and variables > Actions > DESTROY_DEV > Delete"
+          echo "✔ DEV infrastructure destroyed successfully."
+          echo "IMPORTANT: Delete the DESTROY_DEV secret to avoid accidental destruction."
