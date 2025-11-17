@@ -1,3 +1,4 @@
+# --- Outputs ---
 output "frontend_cloudfront_url" {
   description = "URL de CloudFront para acceder al frontend"
   value       = "https://${aws_cloudfront_distribution.frontend_cdn.domain_name}"
