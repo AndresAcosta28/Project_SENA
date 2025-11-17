@@ -1,5 +1,5 @@
 async function llamarAPI() {
-    const url = "http://backend-env-6e3f16d0.eba-prjwqm57.us-east-1.elasticbeanstalk.com/api/hello";
+    const url = "http://backend-env-6e3f16d0.eba-prjwqm57.us-east-1.elasticbeanstalk.com";
 
     try {
         const response = await fetch(url);
