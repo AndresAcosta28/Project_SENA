@@ -120,8 +120,8 @@ resource "aws_security_group" "rds_sg" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # INSEGURO - Solo para desarrollo/académico
-    description = "MySQL access from anywhere - CAMBIAR EN PRODUCCIÓN"
+    cidr_blocks = ["0.0.0.0/0"]  # INSEGURO - Solo para desarrollo
+    description = "MySQL access from anywhere"
   }
 
   egress {
@@ -200,10 +200,13 @@ resource "aws_elastic_beanstalk_application" "backend_app" {
 
 # --- Elastic Beanstalk Environment ---
 resource "aws_elastic_beanstalk_environment" "backend_env" {
-  name                = "backend-env-${random_id.suffix.hex}"
-  application         = aws_elastic_beanstalk_application.backend_app.name
-  solution_stack_name = "64bit Amazon Linux 2023 v4.3.2 running Python 3.11"
+  name        = "backend-env-${random_id.suffix.hex}"
+  application = aws_elastic_beanstalk_application.backend_app.name
 
+  # ❗ Plataforma correcta para Python + AL2023
+  solution_stack_name = "64bit Amazon Linux 2023 running Python 3.9"
+
+  # Configuración de instancia
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
@@ -222,7 +225,7 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     value     = aws_security_group.backend_sg.id
   }
 
-  # Variables de entorno RDS
+  # Variables de entorno del backend
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "DB_HOST"
@@ -257,4 +260,30 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Name        = "Backend Env"
     Environment = var.environment
   }
+}
+
+# --- Outputs ---
+output "frontend_cloudfront_url" {
+  description = "URL de CloudFront para acceder al frontend"
+  value       = "https://${aws_cloudfront_distribution.frontend_cdn.domain_name}"
+}
+
+output "frontend_s3_bucket" {
+  description = "Nombre del bucket S3 para deploy del frontend"
+  value       = aws_s3_bucket.frontend_bucket.id
+}
+
+output "backend_url" {
+  description = "URL de Elastic Beanstalk para el backend API"
+  value       = "http://${aws_elastic_beanstalk_environment.backend_env.endpoint_url}"
+}
+
+output "database_endpoint" {
+  description = "Endpoint de RDS MySQL"
+  value       = aws_db_instance.rds_mysql.address
+}
+
+output "database_port" {
+  description = "Puerto de RDS MySQL"
+  value       = aws_db_instance.rds_mysql.port
 }
