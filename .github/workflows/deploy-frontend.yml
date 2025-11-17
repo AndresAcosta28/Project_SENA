@@ -43,7 +43,7 @@ jobs:
 
       - name: Sync Frontend to S3
         run: |
-          aws s3 sync frontend/ s3://${{ steps.tf_outputs.outputs.bucket }} \
+          aws s3 sync frontend/public/ s3://${{ steps.tf_outputs.outputs.s3_bucket }}
             --delete \
             --exclude "*.md" \
             --cache-control "public, max-age=86400"
