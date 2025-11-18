@@ -1,12 +1,12 @@
-name: Deploy Frontend to S3 + CDN
+name: Deploy Frontend to S3
 
 on:
   push:
     branches:
       - main
     paths:
-      - "frontend/**"   # Solo se ejecuta cuando cambias archivos del frontend
-  workflow_dispatch:     # Permite ejecutar manualmente
+      - 'frontend/**'  # Solo se activa si cambias archivos del frontend
+  workflow_dispatch:  # Permite ejecutar manualmente
 
 jobs:
   deploy:
@@ -28,39 +28,59 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.5
-          terraform_wrapper: false
+          terraform_wrapper: false  # Importante para obtener outputs limpios
 
       - name: Initialize Terraform
         working-directory: terraform/dev
-        run: terraform init -upgrade
+        run: terraform init
 
-      - name: Get Terraform Outputs (Bucket + CloudFront)
+      - name: Get Terraform Outputs
         id: tf_outputs
         working-directory: terraform/dev
         run: |
-          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
+          S3_BUCKET=$(terraform output -raw frontend_bucket_name)
           CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
           echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
           echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
 
-      - name: Sync frontend files to S3
+      - name: Sync HTML/CSS/JS to S3
         run: |
-          echo "📦 Subiendo archivos al bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          aws s3 sync frontend/public/ s3://${{ steps.tf_outputs.outputs.s3_bucket }} \
+          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
+          echo "📦 Uploading to S3 bucket: $S3_BUCKET"
+          
+          # Verifica qué archivos se van a subir
+          echo "📂 Files to upload:"
+          ls -lah frontend/
+          
+          # Sube TODO desde frontend/ (sin la subcarpeta public/)
+          aws s3 sync frontend/ s3://$S3_BUCKET \
             --delete \
+            --exclude ".git/*" \
+            --exclude ".gitignore" \
+            --exclude "README.md" \
             --exclude "*.md" \
-            --cache-control "public, max-age=86400"
+            --cache-control "no-cache, no-store, must-revalidate"
+          
+          echo "✅ Files uploaded successfully"
 
-      - name: Invalidate CloudFront cache
+      - name: Invalidate CloudFront Cache
         run: |
-          echo "🚀 Invalidando caché de CloudFront..."
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
-            --paths "/*"
+          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
+          echo "🔄 Invalidating CloudFront cache for distribution: $CLOUDFRONT_ID"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id $CLOUDFRONT_ID \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          echo "✅ Invalidation created: $INVALIDATION_ID"
+          echo "⏳ Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id $CLOUDFRONT_ID \
+            --id $INVALIDATION_ID
+          echo "✅ Cache invalidated successfully!"
 
       - name: Deployment Summary
         run: |
-          echo "✅ FRONTEND DEPLOYED SUCCESSFULLY!"
-          echo "🌐 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          echo "🌍 CloudFront ID: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
-          echo "🔗 URL: https://${{ steps.tf_outputs.outputs.cloudfront_id }}.cloudfront.net"
+          echo "✅ Frontend deployed successfully!"
+          echo "📦 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
+          echo "🌐 CloudFront ID: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
