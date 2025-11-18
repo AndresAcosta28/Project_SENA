@@ -1,27 +1,38 @@
-name: Deploy Frontend (Nuclear Option)
+name: Deploy Frontend to AWS
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
   workflow_dispatch:
 
 jobs:
   deploy:
+    name: Deploy to S3 and CloudFront
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
+    
     steps:
-      - name: Checkout repository
+      # ==========================================
+      # 1. PREPARACIÓN
+      # ==========================================
+      - name: Checkout code
         uses: actions/checkout@v3
         with:
-          ref: main
-          fetch-depth: 0
-          clean: true  # Limpia el workspace
+          fetch-depth: 1
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # ==========================================
+      # 2. OBTENER INFORMACIÓN DE TERRAFORM
+      # ==========================================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -30,43 +41,157 @@ jobs:
 
       - name: Initialize Terraform
         working-directory: terraform/dev
-        run: terraform init -upgrade
+        run: terraform init
 
-      - name: Get Terraform Outputs
-        id: tf_outputs
+      - name: Get Infrastructure Outputs
+        id: infra
         working-directory: terraform/dev
         run: |
-          echo "s3_bucket=$(terraform output -raw frontend_s3_bucket)" >> $GITHUB_OUTPUT
-          echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
+          CF_ID=$(terraform output -raw cloudfront_distribution_id)
+          CF_URL=$(terraform output -raw frontend_cloudfront_url)
+          
+          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$CF_ID" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$CF_URL" >> $GITHUB_OUTPUT
+          
+          echo "📦 S3 Bucket: $S3_BUCKET"
+          echo "☁️  CloudFront ID: $CF_ID"
+          echo "🌐 CloudFront URL: $CF_URL"
 
-      - name: Nuclear option - Delete everything from S3
+      # ==========================================
+      # 3. VALIDACIÓN PRE-DEPLOYMENT
+      # ==========================================
+      - name: Validate Frontend Structure
         run: |
-          echo "💣 Borrando TODO de S3..."
-          aws s3 rm s3://${{ steps.tf_outputs.outputs.s3_bucket }} --recursive
+          echo "🔍 Validating frontend structure..."
+          
+          # Verificar que existe la carpeta frontend
+          if [ ! -d "frontend/public" ]; then
+            echo "❌ ERROR: frontend/public/ directory not found"
+            echo "Available directories:"
+            ls -la frontend/ || ls -la
+            exit 1
+          fi
+          
+          # Verificar que existen archivos esenciales
+          if [ ! -f "frontend/public/index.html" ]; then
+            echo "❌ ERROR: index.html not found in frontend/public/"
+            exit 1
+          fi
+          
+          echo "✅ Frontend structure is valid"
+          echo ""
+          echo "📂 Files to deploy:"
+          find frontend/public -type f -exec ls -lh {} \;
 
-      - name: Upload files with cp (not sync)
+      # ==========================================
+      # 4. LIMPIAR S3 (Evitar archivos huérfanos)
+      # ==========================================
+      - name: Clean S3 Bucket
         run: |
-          echo "📤 Subiendo archivos uno por uno..."
-          cd frontend/public/
-          for file in $(find . -type f); do
-            echo "Uploading: $file"
-            aws s3 cp "$file" "s3://${{ steps.tf_outputs.outputs.s3_bucket }}/$file" \
-              --cache-control "no-cache, no-store, must-revalidate"
-          done
+          echo "🧹 Cleaning S3 bucket..."
+          aws s3 rm s3://${{ steps.infra.outputs.s3_bucket }} --recursive
+          echo "✅ S3 bucket cleaned"
 
-      - name: Verify what was uploaded
+      # ==========================================
+      # 5. UPLOAD A S3
+      # ==========================================
+      - name: Upload to S3
         run: |
-          echo "📋 Verificando S3:"
-          aws s3 ls s3://${{ steps.tf_outputs.outputs.s3_bucket }}/ --recursive --human-readable
+          echo "📤 Uploading files to S3..."
+          
+          # Upload usando cp --recursive para evitar problemas de rutas
+          aws s3 cp frontend/public/ s3://${{ steps.infra.outputs.s3_bucket }}/ \
+            --recursive \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --metadata-directive REPLACE
+          
+          echo "✅ Upload completed"
 
-      - name: Nuclear CloudFront invalidation
+      # ==========================================
+      # 6. VERIFICACIÓN POST-UPLOAD
+      # ==========================================
+      - name: Verify S3 Upload
         run: |
-          echo "💥 Invalidando CloudFront..."
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
-            --paths "/*"
+          echo "🔍 Verifying uploaded files..."
+          echo ""
+          
+          # Listar archivos en S3
+          echo "Files in S3:"
+          aws s3 ls s3://${{ steps.infra.outputs.s3_bucket }}/ --recursive --human-readable
+          echo ""
+          
+          # Verificar que index.html existe y obtener su contenido
+          if aws s3 ls s3://${{ steps.infra.outputs.s3_bucket }}/index.html > /dev/null 2>&1; then
+            echo "✅ index.html found in S3"
+            echo ""
+            echo "📄 First 20 lines of index.html from S3:"
+            aws s3 cp s3://${{ steps.infra.outputs.s3_bucket }}/index.html - | head -20
+          else
+            echo "❌ ERROR: index.html NOT found in S3"
+            exit 1
+          fi
 
-      - name: Done
+      # ==========================================
+      # 7. INVALIDAR CLOUDFRONT
+      # ==========================================
+      - name: Invalidate CloudFront Cache
         run: |
-          echo "✅ Deployment nuclear completado"
-          echo "🔗 Espera 3-5 minutos y abre en modo incógnito"
+          echo "🔄 Creating CloudFront invalidation..."
+          
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.infra.outputs.cloudfront_id }} \
+            --paths "/*" \
+            --query 'Invalidation.Id' \
+            --output text)
+          
+          echo "✅ Invalidation created: $INVALIDATION_ID"
+          echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
+          
+          # Esperar a que complete (opcional, toma 2-3 minutos)
+          echo "⏳ Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id ${{ steps.infra.outputs.cloudfront_id }} \
+            --id $INVALIDATION_ID
+          
+          echo "✅ Cache invalidated successfully"
+
+      # ==========================================
+      # 8. RESUMEN
+      # ==========================================
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ FRONTEND DEPLOYED SUCCESSFULLY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "📦 S3 Bucket: ${{ steps.infra.outputs.s3_bucket }}"
+          echo "☁️  CloudFront Distribution: ${{ steps.infra.outputs.cloudfront_id }}"
+          echo "🌐 Live URL: ${{ steps.infra.outputs.cloudfront_url }}"
+          echo ""
+          echo "🔗 Open in browser: ${{ steps.infra.outputs.cloudfront_url }}"
+          echo ""
+          echo "📝 Git Info:"
+          echo "   Commit: ${{ github.sha }}"
+          echo "   Author: ${{ github.actor }}"
+          echo "   Message: ${{ github.event.head_commit.message }}"
+          echo ""
+          echo "⏰ Note: Changes may take 2-3 minutes to propagate"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ DEPLOYMENT FAILED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Please check the logs above for details"
+          echo "Common issues:"
+          echo "  - Missing frontend/public/index.html"
+          echo "  - AWS credentials not configured"
+          echo "  - Terraform state not accessible"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

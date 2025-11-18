@@ -1,4 +1,4 @@
-name: Deploy Backend to Elastic Beanstalk
+name: Deploy Backend to AWS
 
 on:
   push:
@@ -10,12 +10,18 @@ on:
 
 jobs:
   deploy:
+    name: Deploy to Elastic Beanstalk
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
+    
     steps:
+      # ==========================================
+      # 1. PREPARACIÓN
+      # ==========================================
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -29,55 +35,225 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # ==========================================
+      # 2. OBTENER INFORMACIÓN DE TERRAFORM
+      # ==========================================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.5
           terraform_wrapper: false
 
-      - name: Terraform Init
+      - name: Initialize Terraform
         working-directory: terraform/dev
-        run: terraform init -input=false
+        run: terraform init
 
-      - name: Get Terraform Outputs
-        id: tf_outputs
+      - name: Get Infrastructure Outputs
+        id: infra
         working-directory: terraform/dev
         run: |
-          echo "app=$(terraform output -raw backend_app_name)" >> $GITHUB_OUTPUT
-          echo "env=$(terraform output -raw backend_env_name)" >> $GITHUB_OUTPUT
+          EB_APP=$(terraform output -raw backend_app_name)
+          EB_ENV=$(terraform output -raw backend_env_name)
+          BACKEND_URL=$(terraform output -raw backend_url)
+          
+          echo "eb_app=$EB_APP" >> $GITHUB_OUTPUT
+          echo "eb_env=$EB_ENV" >> $GITHUB_OUTPUT
+          echo "backend_url=$BACKEND_URL" >> $GITHUB_OUTPUT
+          
+          echo "🚀 EB Application: $EB_APP"
+          echo "🌍 EB Environment: $EB_ENV"
+          echo "🔗 Backend URL: $BACKEND_URL"
 
-      - name: Generate version label
+      # ==========================================
+      # 3. VALIDACIÓN PRE-DEPLOYMENT
+      # ==========================================
+      - name: Validate Backend Structure
+        run: |
+          echo "🔍 Validating backend structure..."
+          
+          if [ ! -d "backend" ]; then
+            echo "❌ ERROR: backend/ directory not found"
+            exit 1
+          fi
+          
+          if [ ! -f "backend/application.py" ] && [ ! -f "backend/app.py" ]; then
+            echo "❌ ERROR: No application.py or app.py found in backend/"
+            exit 1
+          fi
+          
+          if [ ! -f "backend/requirements.txt" ]; then
+            echo "❌ ERROR: requirements.txt not found in backend/"
+            exit 1
+          fi
+          
+          echo "✅ Backend structure is valid"
+          echo ""
+          echo "📂 Backend files:"
+          ls -lah backend/
+
+      # ==========================================
+      # 4. CREAR PAQUETE DE DEPLOYMENT
+      # ==========================================
+      - name: Generate Version Label
         id: version
-        run: echo "label=v-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        run: |
+          VERSION="v-$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          echo "label=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
 
-      - name: Create ZIP package
+      - name: Create Deployment Package
         working-directory: backend
         run: |
-          zip -r ../deploy.zip . \
-            -x "*.git*" "*.pyc" "__pycache__/*" "venv/*" ".env"
+          echo "📦 Creating deployment package..."
+          
+          # Crear ZIP excluyendo archivos innecesarios
+          zip -r ../backend-${{ steps.version.outputs.label }}.zip . \
+            -x "*.git*" \
+            -x "*__pycache__*" \
+            -x "*.pyc" \
+            -x "*.pyo" \
+            -x "venv/*" \
+            -x ".env" \
+            -x "*.log" \
+            -x ".DS_Store" \
+            -x "node_modules/*"
+          
+          echo "✅ Package created: backend-${{ steps.version.outputs.label }}.zip"
+          
+          # Mostrar tamaño del paquete
+          ls -lh ../backend-${{ steps.version.outputs.label }}.zip
 
-      - name: Upload ZIP to S3 used by Elastic Beanstalk
+      # ==========================================
+      # 5. UPLOAD A S3
+      # ==========================================
+      - name: Upload Package to S3
         run: |
-          EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
-          aws s3 cp deploy.zip s3://$EB_BUCKET/${{ steps.version.outputs.label }}.zip
+          echo "📤 Uploading deployment package to S3..."
+          
+          # Obtener el bucket de Elastic Beanstalk
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-${ACCOUNT_ID}"
+          
+          echo "Uploading to: s3://$EB_BUCKET/"
+          
+          aws s3 cp backend-${{ steps.version.outputs.label }}.zip \
+            s3://$EB_BUCKET/backend-${{ steps.version.outputs.label }}.zip
+          
+          echo "✅ Package uploaded"
+          echo "eb_bucket=$EB_BUCKET" >> $GITHUB_OUTPUT
+        id: s3_upload
 
-      - name: Create EB Application Version
+      # ==========================================
+      # 6. CREAR VERSIÓN EN ELASTIC BEANSTALK
+      # ==========================================
+      - name: Create Application Version
         run: |
-          EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          echo "📝 Creating Elastic Beanstalk application version..."
+          
           aws elasticbeanstalk create-application-version \
-            --application-name ${{ steps.tf_outputs.outputs.app }} \
+            --application-name ${{ steps.infra.outputs.eb_app }} \
             --version-label ${{ steps.version.outputs.label }} \
-            --source-bundle S3Bucket=$EB_BUCKET,S3Key="${{ steps.version.outputs.label }}.zip"
+            --source-bundle S3Bucket="${{ steps.s3_upload.outputs.eb_bucket }}",S3Key="backend-${{ steps.version.outputs.label }}.zip" \
+            --description "Deployed from GitHub Actions - Commit: ${{ github.sha }}"
+          
+          echo "✅ Application version created"
 
+      # ==========================================
+      # 7. DEPLOY A ELASTIC BEANSTALK
+      # ==========================================
       - name: Deploy to Elastic Beanstalk
         run: |
+          echo "🚀 Deploying to Elastic Beanstalk environment..."
+          
           aws elasticbeanstalk update-environment \
-            --environment-name ${{ steps.tf_outputs.outputs.env }} \
+            --application-name ${{ steps.infra.outputs.eb_app }} \
+            --environment-name ${{ steps.infra.outputs.eb_env }} \
             --version-label ${{ steps.version.outputs.label }}
+          
+          echo "✅ Deployment initiated"
 
-      - name: Deployment Summary
+      # ==========================================
+      # 8. ESPERAR DEPLOYMENT
+      # ==========================================
+      - name: Wait for Deployment
         run: |
-          echo "🚀 BACKEND DEPLOYED!"
-          echo "📦 App: ${{ steps.tf_outputs.outputs.app }}"
-          echo "🌍 Env: ${{ steps.tf_outputs.outputs.env }}"
+          echo "⏳ Waiting for environment to update (this may take 5-10 minutes)..."
+          
+          aws elasticbeanstalk wait environment-updated \
+            --application-name ${{ steps.infra.outputs.eb_app }} \
+            --environment-name ${{ steps.infra.outputs.eb_env }}
+          
+          echo "✅ Environment updated successfully"
+
+      # ==========================================
+      # 9. VERIFICACIÓN POST-DEPLOYMENT
+      # ==========================================
+      - name: Verify Deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          
+          # Obtener el estado del environment
+          ENV_STATUS=$(aws elasticbeanstalk describe-environments \
+            --application-name ${{ steps.infra.outputs.eb_app }} \
+            --environment-names ${{ steps.infra.outputs.eb_env }} \
+            --query "Environments[0].Status" \
+            --output text)
+          
+          ENV_HEALTH=$(aws elasticbeanstalk describe-environments \
+            --application-name ${{ steps.infra.outputs.eb_app }} \
+            --environment-names ${{ steps.infra.outputs.eb_env }} \
+            --query "Environments[0].Health" \
+            --output text)
+          
+          echo "Status: $ENV_STATUS"
+          echo "Health: $ENV_HEALTH"
+          
+          if [ "$ENV_STATUS" != "Ready" ]; then
+            echo "⚠️  WARNING: Environment status is not Ready"
+          fi
+          
+          if [ "$ENV_HEALTH" != "Green" ] && [ "$ENV_HEALTH" != "Yellow" ]; then
+            echo "❌ ERROR: Environment health is $ENV_HEALTH"
+            exit 1
+          fi
+          
+          echo "✅ Deployment verified"
+
+      # ==========================================
+      # 10. RESUMEN
+      # ==========================================
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ BACKEND DEPLOYED SUCCESSFULLY"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🚀 Application: ${{ steps.infra.outputs.eb_app }}"
+          echo "🌍 Environment: ${{ steps.infra.outputs.eb_env }}"
           echo "🔖 Version: ${{ steps.version.outputs.label }}"
+          echo "🔗 URL: ${{ steps.infra.outputs.backend_url }}"
+          echo ""
+          echo "📝 Git Info:"
+          echo "   Commit: ${{ github.sha }}"
+          echo "   Author: ${{ github.actor }}"
+          echo "   Message: ${{ github.event.head_commit.message }}"
+          echo ""
+          echo "🧪 Test the API:"
+          echo "   curl ${{ steps.infra.outputs.backend_url }}/health"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: Deployment Failed
+        if: failure()
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "❌ DEPLOYMENT FAILED"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "🔍 Check Elastic Beanstalk logs:"
+          echo "   aws elasticbeanstalk request-environment-info \\"
+          echo "     --environment-name ${{ steps.infra.outputs.eb_env }} \\"
+          echo "     --info-type tail"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
