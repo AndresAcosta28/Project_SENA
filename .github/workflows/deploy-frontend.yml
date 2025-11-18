@@ -1,24 +1,19 @@
-name: Deploy Frontend to S3 + CDN
+name: Deploy Frontend (Nuclear Option)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "frontend/**"
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          ref: main  # Forzar checkout de main, no del SHA que inició el workflow
-          fetch-depth: 0  # Obtener todo el historial
+          ref: main
+          fetch-depth: 0
+          clean: true  # Limpia el workspace
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,92 +32,41 @@ jobs:
         working-directory: terraform/dev
         run: terraform init -upgrade
 
-      - name: Get Terraform Outputs (Bucket + CloudFront)
+      - name: Get Terraform Outputs
         id: tf_outputs
         working-directory: terraform/dev
         run: |
-          S3_BUCKET=$(terraform output -raw frontend_s3_bucket)
-          CLOUDFRONT_ID=$(terraform output -raw cloudfront_distribution_id)
-          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
-          echo "cloudfront_id=$CLOUDFRONT_ID" >> $GITHUB_OUTPUT
+          echo "s3_bucket=$(terraform output -raw frontend_s3_bucket)" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
 
-      - name: Show files to upload
+      - name: Nuclear option - Delete everything from S3
         run: |
-          echo "📂 Commit actual:"
-          git log -1 --oneline
-          echo ""
-          echo "📂 Archivos en frontend/public/:"
-          ls -lah frontend/public/
-          echo ""
-          echo "📝 Contenido de index.html (primeras 10 líneas):"
-          head -n 10 frontend/public/index.html
+          echo "💣 Borrando TODO de S3..."
+          aws s3 rm s3://${{ steps.tf_outputs.outputs.s3_bucket }} --recursive
 
-      - name: Sync frontend files to S3
+      - name: Upload files with cp (not sync)
         run: |
-          S3_BUCKET="${{ steps.tf_outputs.outputs.s3_bucket }}"
-          echo "📦 Subiendo archivos al bucket: $S3_BUCKET"
-          
-          # Usar --exact-timestamps para comparación exacta
-          # y --metadata-directive REPLACE para forzar actualización de metadata
-          aws s3 sync frontend/public/ s3://$S3_BUCKET \
-            --delete \
-            --exact-timestamps \
-            --metadata-directive REPLACE \
-            --cache-control "no-cache, no-store, must-revalidate" \
-            --exclude "*.md" \
-            --exclude ".DS_Store"
-          
-          echo "✅ Archivos subidos correctamente"
+          echo "📤 Subiendo archivos uno por uno..."
+          cd frontend/public/
+          for file in $(find . -type f); do
+            echo "Uploading: $file"
+            aws s3 cp "$file" "s3://${{ steps.tf_outputs.outputs.s3_bucket }}/$file" \
+              --cache-control "no-cache, no-store, must-revalidate"
+          done
 
-      - name: Verify uploaded files
+      - name: Verify what was uploaded
         run: |
-          echo "📋 Archivos en S3:"
+          echo "📋 Verificando S3:"
           aws s3 ls s3://${{ steps.tf_outputs.outputs.s3_bucket }}/ --recursive --human-readable
-          
-          echo ""
-          echo "🔍 Descargando index.html de S3 para verificar contenido:"
-          aws s3 cp s3://${{ steps.tf_outputs.outputs.s3_bucket }}/index.html /tmp/s3-index.html
-          
-          echo ""
-          echo "📝 Primeras 10 líneas del index.html en S3:"
-          head -n 10 /tmp/s3-index.html
-          
-          echo ""
-          echo "🆚 Comparando local vs S3:"
-          if diff frontend/public/index.html /tmp/s3-index.html > /dev/null; then
-            echo "✅ Los archivos son IDÉNTICOS"
-          else
-            echo "❌ Los archivos son DIFERENTES"
-            echo "Diferencias:"
-            diff frontend/public/index.html /tmp/s3-index.html || true
-          fi
 
-      - name: Invalidate CloudFront cache
+      - name: Nuclear CloudFront invalidation
         run: |
-          CLOUDFRONT_ID="${{ steps.tf_outputs.outputs.cloudfront_id }}"
-          echo "🚀 Invalidando caché de CloudFront: $CLOUDFRONT_ID"
-          
-          INVALIDATION_ID=$(aws cloudfront create-invalidation \
-            --distribution-id $CLOUDFRONT_ID \
-            --paths "/*" \
-            --query 'Invalidation.Id' \
-            --output text)
-          
-          echo "✅ Invalidación creada: $INVALIDATION_ID"
-          echo "⏳ Esperando que complete (esto toma 2-3 minutos)..."
-          
-          aws cloudfront wait invalidation-completed \
-            --distribution-id $CLOUDFRONT_ID \
-            --id $INVALIDATION_ID
-          
-          echo "✅ Cache invalidado completamente"
+          echo "💥 Invalidando CloudFront..."
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
+            --paths "/*"
 
-      - name: Deployment Summary
+      - name: Done
         run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ FRONTEND DEPLOYED SUCCESSFULLY!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🌐 S3 Bucket: ${{ steps.tf_outputs.outputs.s3_bucket }}"
-          echo "☁️  CloudFront: ${{ steps.tf_outputs.outputs.cloudfront_id }}"
-          echo "🔗 URL: https://${{ steps.tf_outputs.outputs.cloudfront_id }}.cloudfront.net"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ Deployment nuclear completado"
+          echo "🔗 Espera 3-5 minutos y abre en modo incógnito"
