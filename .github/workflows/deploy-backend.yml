@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**'
+      - "backend/**"
   workflow_dispatch:
 
 jobs:
@@ -20,9 +20,9 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -35,16 +35,28 @@ jobs:
           terraform_version: 1.13.5
           terraform_wrapper: false
 
-      - name: Terraform Init
+      - name: Terraform Init + Refresh
         working-directory: terraform/dev
-        run: terraform init -input=false
+        run: |
+          rm -rf .terraform
+          terraform init -upgrade
+          terraform refresh
 
       - name: Get Terraform Outputs
-        id: tf_outputs
+        id: tf
         working-directory: terraform/dev
         run: |
           echo "app=$(terraform output -raw backend_app_name)" >> $GITHUB_OUTPUT
           echo "env=$(terraform output -raw backend_env_name)" >> $GITHUB_OUTPUT
+
+      - name: Debug Terraform Outputs
+        run: |
+          echo "📌 App: '${{ steps.tf.outputs.app }}'"
+          echo "📌 Env: '${{ steps.tf.outputs.env }}'"
+          if [ -z "${{ steps.tf.outputs.app }}" ] || [ -z "${{ steps.tf.outputs.env }}" ]; then
+            echo "❌ ERROR: Terraform outputs vinieron vacíos"
+            exit 1
+          fi
 
       - name: Generate version label
         id: version
@@ -56,28 +68,29 @@ jobs:
           zip -r ../deploy.zip . \
             -x "*.git*" "*.pyc" "__pycache__/*" "venv/*" ".env"
 
-      - name: Upload ZIP to S3 used by Elastic Beanstalk
+      - name: Upload ZIP to Elastic Beanstalk Bucket
         run: |
           EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
+          echo "📦 EB Bucket: $EB_BUCKET"
           aws s3 cp deploy.zip s3://$EB_BUCKET/${{ steps.version.outputs.label }}.zip
 
       - name: Create EB Application Version
         run: |
           EB_BUCKET="elasticbeanstalk-${{ secrets.AWS_REGION }}-$(aws sts get-caller-identity --query Account --output text)"
           aws elasticbeanstalk create-application-version \
-            --application-name ${{ steps.tf_outputs.outputs.app }} \
+            --application-name ${{ steps.tf.outputs.app }} \
             --version-label ${{ steps.version.outputs.label }} \
             --source-bundle S3Bucket=$EB_BUCKET,S3Key="${{ steps.version.outputs.label }}.zip"
 
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk update-environment \
-            --environment-name ${{ steps.tf_outputs.outputs.env }} \
+            --environment-name ${{ steps.tf.outputs.env }} \
             --version-label ${{ steps.version.outputs.label }}
 
       - name: Deployment Summary
         run: |
           echo "🚀 BACKEND DEPLOYED!"
-          echo "📦 App: ${{ steps.tf_outputs.outputs.app }}"
-          echo "🌍 Env: ${{ steps.tf_outputs.outputs.env }}"
+          echo "📦 Application: ${{ steps.tf.outputs.app }}"
+          echo "🌍 Environment: ${{ steps.tf.outputs.env }}"
           echo "🔖 Version: ${{ steps.version.outputs.label }}"
