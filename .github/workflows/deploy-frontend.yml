@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          ref: main  # Forzar checkout de main, no del SHA que inició el workflow
+          fetch-depth: 0  # Obtener todo el historial
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -45,8 +48,14 @@ jobs:
 
       - name: Show files to upload
         run: |
+          echo "📂 Commit actual:"
+          git log -1 --oneline
+          echo ""
           echo "📂 Archivos en frontend/public/:"
           ls -lah frontend/public/
+          echo ""
+          echo "📝 Contenido de index.html (primeras 10 líneas):"
+          head -n 10 frontend/public/index.html
 
       - name: Sync frontend files to S3
         run: |
@@ -69,6 +78,24 @@ jobs:
         run: |
           echo "📋 Archivos en S3:"
           aws s3 ls s3://${{ steps.tf_outputs.outputs.s3_bucket }}/ --recursive --human-readable
+          
+          echo ""
+          echo "🔍 Descargando index.html de S3 para verificar contenido:"
+          aws s3 cp s3://${{ steps.tf_outputs.outputs.s3_bucket }}/index.html /tmp/s3-index.html
+          
+          echo ""
+          echo "📝 Primeras 10 líneas del index.html en S3:"
+          head -n 10 /tmp/s3-index.html
+          
+          echo ""
+          echo "🆚 Comparando local vs S3:"
+          if diff frontend/public/index.html /tmp/s3-index.html > /dev/null; then
+            echo "✅ Los archivos son IDÉNTICOS"
+          else
+            echo "❌ Los archivos son DIFERENTES"
+            echo "Diferencias:"
+            diff frontend/public/index.html /tmp/s3-index.html || true
+          fi
 
       - name: Invalidate CloudFront cache
         run: |
