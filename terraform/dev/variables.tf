@@ -10,12 +10,6 @@ variable "db_username" {
   default     = "admin"
 }
 
-variable "db_password" {
-  description = "Contraseña de la base de datos"
-  type        = string
-  sensitive   = true
-}
-
 variable "environment" {
   description = "Nombre del entorno (dev, prod, etc.)"
   type        = string
