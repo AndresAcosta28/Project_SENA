@@ -66,15 +66,12 @@ jobs:
         run: |
           echo "🔍 Validating frontend structure..."
           
-          # Verificar que existe la carpeta frontend
           if [ ! -d "frontend/public" ]; then
             echo "❌ ERROR: frontend/public/ directory not found"
-            echo "Available directories:"
             ls -la frontend/ || ls -la
             exit 1
           fi
           
-          # Verificar que existen archivos esenciales
           if [ ! -f "frontend/public/index.html" ]; then
             echo "❌ ERROR: index.html not found in frontend/public/"
             exit 1
@@ -86,13 +83,41 @@ jobs:
           find frontend/public -type f -exec ls -lh {} \;
 
       # ==========================================
-      # 4. LIMPIAR S3 (Evitar archivos huérfanos)
+      # 4. LIMPIAR S3 (HARD CLEAN: versiones + delete markers)
       # ==========================================
-      - name: Clean S3 Bucket
+      - name: HARD Clean S3 Bucket (versions + delete markers)
         run: |
-          echo "🧹 Cleaning S3 bucket..."
-          aws s3 rm s3://${{ steps.infra.outputs.s3_bucket }} --recursive
-          echo "✅ S3 bucket cleaned"
+          BUCKET=${{ steps.infra.outputs.s3_bucket }}
+          echo "🧹 HARD cleaning S3 bucket: $BUCKET"
+
+          echo "📌 Eliminando VERSIONES..."
+          aws s3api list-object-versions --bucket "$BUCKET" \
+            --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' \
+            --output json > versions.json || true
+
+          if [ -s versions.json ]; then
+            aws s3api delete-objects --bucket "$BUCKET" --delete file://versions.json || true
+            echo "✔️ Versiones eliminadas"
+          else
+            echo "✔️ No había versiones"
+          fi
+
+          echo "📌 Eliminando DELETE MARKERS..."
+          aws s3api list-object-versions --bucket "$BUCKET" \
+            --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' \
+            --output json > markers.json || true
+
+          if [ -s markers.json ]; then
+            aws s3api delete-objects --bucket "$BUCKET" --delete file://markers.json || true
+            echo "✔️ Delete markers eliminados"
+          else
+            echo "✔️ No había delete markers"
+          fi
+
+          echo "📌 Eliminando objetos visibles..."
+          aws s3 rm s3://$BUCKET --recursive || true
+
+          echo "✅ S3 bucket is COMPLETELY CLEAN (Fresh State)"
 
       # ==========================================
       # 5. UPLOAD A S3
@@ -101,7 +126,6 @@ jobs:
         run: |
           echo "📤 Uploading files to S3..."
           
-          # Upload usando cp --recursive para evitar problemas de rutas
           aws s3 cp frontend/public/ s3://${{ steps.infra.outputs.s3_bucket }}/ \
             --recursive \
             --cache-control "no-cache, no-store, must-revalidate" \
@@ -117,12 +141,10 @@ jobs:
           echo "🔍 Verifying uploaded files..."
           echo ""
           
-          # Listar archivos en S3
           echo "Files in S3:"
           aws s3 ls s3://${{ steps.infra.outputs.s3_bucket }}/ --recursive --human-readable
           echo ""
           
-          # Verificar que index.html existe y obtener su contenido
           if aws s3 ls s3://${{ steps.infra.outputs.s3_bucket }}/index.html > /dev/null 2>&1; then
             echo "✅ index.html found in S3"
             echo ""
@@ -149,7 +171,6 @@ jobs:
           echo "✅ Invalidation created: $INVALIDATION_ID"
           echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
           
-          # Esperar a que complete (opcional, toma 2-3 minutos)
           echo "⏳ Waiting for invalidation to complete..."
           aws cloudfront wait invalidation-completed \
             --distribution-id ${{ steps.infra.outputs.cloudfront_id }} \

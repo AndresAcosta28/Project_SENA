@@ -329,4 +329,6 @@ resource "aws_elastic_beanstalk_environment" "backend_env" {
     Name        = "Backend Env"
     Environment = var.environment
   }
-}
+}  
+
+# --- Ejemplo de CD/CI ---
