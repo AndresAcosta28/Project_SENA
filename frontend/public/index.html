@@ -1,19 +1,347 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prueba Frontend SENA</title>
-    <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <h1>🚀 Frontend Funcionando</h1>
-    <p>Si ves esta página, el despliegue a S3 + CloudFront fue exitoso.</p>
 
-    <button id="check-backend">Probar API Backend</button>
+    <header class="header">
 
-    <pre id="backend-response"></pre>
+        <img class="bg"  src="images/bg.png" alt="">
+        <div class="menu container">
+            <a href="#" class="logo">Platos Restaurante</a>
+            <input type="checkbox" id="menu">
+            <label for="menu">
+                <img src="images/menu.png" class="menu-icono" alt="">
+            </label>
+            <nav class="navbar">
+                <ul>
+                    <li><a href="#">Inicio</a></li>
+                    <li><a href="#">Servicios</a></li>
+                    <li><a href="#">Productos</a></li>
+                    <li><a href="#">Reservas</a></li>
+                    <li><a href="#">Empleados</a></li>
+                </ul>
+            </nav>
+            <div>
+                <ul>
+                    <li class="submenu">
+                        <img src="images/car.svg" id="img-carrito" alt="">
+                        <div id="carrito">
+                            <table id="lista-carrito">
+                                <thead>
+                                    <tr>
+                                        <th>Imagen</th>
+                                        <th>Nombre</th>
+                                        <th>Precio</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <a href="#" id="vaciar-carrito" class="btn-3">Vaciar Carrito</a>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </div>
 
+        <div class="header-content container">
+
+            <div class="header-text">
+                <h1> <span>Bienvenido</span> disfruta de nuestros platillos </h1>
+                <p> Con varios años de experiencia, nuestro restaurante se ha convertido en un lugar de confianza para
+                    quienes buscan buena comida y un excelente servicio. Contamos con un sistema de reservas para una
+                    atención ágil y personalizada, así como una sección para la compra de nuestro menú, donde los
+                    clientes pueden adquirir nuestros mejores platos y productos exclusivos de la casa. Nuestra
+                    trayectoria y compromiso con la calidad nos han permitido mantenernos como una opción favorita en la
+                    ciudad.
+                </p>
+                <a href="#" class="btn-1">Informacion</a>
+                <div class="header-img">
+                    <img src="" alt="">
+                </div>
+                <div class="header-img">
+                    <img src="images/Fotos Restaurante.jpg" alt="">
+
+                </div>
+            </div>
+        </div>
+    </header>
+
+
+    <section class="food container">
+
+        <h2>Entradas</h2>
+        <p>
+            Horario 12pm - 10pm
+        </p>
+
+        <div class="food-content">
+
+            <div class="plato-1">
+                <img src="images/en1.jpg" alt="">
+                <h3>Empanadas de carne y papa </h3>
+            </div>
+
+            <div class="plato-1">
+                <img src="images/en 2.jpg" alt="">
+                <h3>Chicharrones crujientes con guacamole y pico de gallo</h3>
+            </div>
+
+            <div class="plato-1">
+                <img src="images/en3 .jpg" alt="">
+                <h3>Canoas de platano verde</h3>
+            </div>
+
+            <div class="plato-1">
+                <img src="images/en4.jpeg" alt="">
+                <h3>Arepa de huevo y carne desmechada</h3>
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="info">
+
+        <img class="bg-2" src="images/bg-2.png" alt="">
+        <div class="info-content container">
+
+            <div class="info-img">
+                <img src="images/images-2.jpeg" alt="">
+            </div>
+
+            <div class="info-txt">
+                <h2>DESCUBRE PLATOS RESTAURANTE</h2>
+                <p>
+                    “Un lugar donde vivirás una experiencia gastronómica única
+                    y en un ambiente acogedor.”
+                </p>
+                <a href="#" class="btn-1">Informacion</a>
+            </div>
+
+        </div>
+
+    </section>
+
+    <section class="reservas container">
+
+    <h2>Reserva tu mesa</h2>
+    <p>Haz tu reserva fácilmente completando el formulario.</p>
+
+    <form id="reserva-form" method="POST" action="guardar_reserva.php">
+
+        <input type="text" name="nombre" placeholder="Tu nombre" required>
+        <input type="text" name="telefono" placeholder="Teléfono" required>
+
+        <label>Fecha</label>
+        <input type="date" name="fecha" id="fecha" required>
+
+        <label>Hora</label>
+        <select name="hora" id="hora" required></select>
+
+        <label>Personas</label>
+        <input type="number" name="personas" min="1" required>
+
+        <button type="submit" class="btn-3">Reservar</button>
+    </form>
+
+    <div id="mensaje-confirmacion"></div>
+
+</section>
+
+
+
+    <main class="products container">
+
+        <h2>Productos</h2>
+
+        <div class="box-container" id="lista-1">
+
+            <div class="box">
+                <img src="images/carne.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Punta de Anca y Patatas</h3>
+                    <p>Corte Premium de Punta de Anca y Especias 300grs con Patatas al horno</p>
+                    <p class="precio">$30.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="1">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl2.jpeg" alt="">
+                <div class="product-txt">
+                    <h3>Pechuga a la Plancha</h3>
+                    <p>Pechuga a la Plancha 300grs con Verduras Salteadas </p>
+                    <p class="precio">$28.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="2">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl3.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Salmon al Ajillo</h3>
+                    <p> Salmon al Ajillo 300grs con Brocoli y Patatas</p>
+                    <p class="precio">$35.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="3">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl4.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Tallarines con Camarones</h3>
+                    <p>Tallarines en Salsa Bechamel con Camarones al Ajillo </p>
+                    <p class="precio">$34.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="4">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl5.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Ensalada de Pollo</h3>
+                    <p>Ensalada Mediterranea con Pollo a la Parrilla</p>
+                    <p class="precio">$24.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="5">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl6.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Ajiaco Santafereño</h3>
+                    <p>Ajiaco de Pollo con mazorca, Arroz y Aguacate</p>
+                    <p class="precio">$27.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="6">Agregar al carrito</a>
+
+                </div>
+
+            </div>
+
+            <div class="box">
+                <img src="images/pl7.jpg" alt="">
+                <div class="product-txt">
+                    <h3>Hamburguesa de Res 200grs </h3>
+                    <p>Hamburguesa de Res 200grs carne 100% Artesanal </p>
+                    <p class="precio">$25.000</p>
+                    <a href="#" class="agregar-carrito btn-3" data-id="7">Agregar al carrito</a>
+
+                </div>
+            </div>    
+
+                <div class="box">
+                    <img src="images/pl8.jpg" alt="">
+                    <div class="product-txt">
+                        <h3>Trucha en Salsa de Camarones</h3>
+                        <p>Trucha en Salsa de Camarones con Patacon y Aguacate </p>
+                        <p class="precio">$37.000</p>
+                        <a href="#" class="agregar-carrito btn-3" data-id="8">Agregar al carrito</a>
+
+                    </div>
+
+                </div>
+
+        </div>
+                
+            <div class="btn-2" id="load-more">Cargar Mas</div>
+
+        
+
+    </main>
+
+
+    <section class="app container">
+
+        <div class="app-txt">
+
+            <h2>Descarga Nuestra App Descubre Ofertas</h2>
+            <p>
+                Con la app de Restaurante Platos descubrirás nuestras exclusivas ofertas, podrás realizar tus reservas
+                con facilidad, explorar nuestro menú gourmet y mucho más.
+            </p>
+            <div class="descarga">
+                <img src="images/store1.png" alt="">
+                <img src="images/store2.png" alt="">
+
+            </div>
+        </div>
+
+        <div class="app-img">
+            <img src="images/app.png" alt="">
+
+        </div>
+
+    </section>
+
+
+    <footer class="footer">
+
+        <div class="footer-content container">
+
+            <div class="link">
+                <h3>Siguenos</h3>
+                <ul>
+                    <li><a href="#">Facebook</a></li>
+                    <li><a href="#">Youtube</a></li>
+                    <li><a href="#">X</a></li>
+                    <li><a href="#">Instagram</a></li>
+                </ul>
+
+            </div>
+
+            <div class="link">
+                <h3>Nosotros</h3>
+                <ul>
+                    <li><a href="#">Reservas</a></li>
+                    <li><a href="#">Contactanos</a></li>
+                    <li><a href="#">Promociones</a></li>
+                    <li><a href="#">Trabaja con Nosostros</a></li>
+                </ul>
+
+            </div>
+
+            <div class="link">
+                <h3>Informacion Legal</h3>
+                <ul>
+                    <li><a href="#">Terminos y Condiciones</a></li>
+                    <li><a href="#">Industria y Comercio</a></li>
+                    <li><a href="#">Politica de Proteccion de Datos</a></li>
+                    <li><a href="#">Acerca de Platos Restaurante</a></li>
+                </ul>
+
+            </div>
+
+            <div class="descarga">
+                <img src="images/store1.png" alt="">
+                <img src="images/store2.png" alt="">
+
+            </div>
+
+        </div>
+        
+    </footer>
     <script src="script.js"></script>
+    
 </body>
+
 </html>

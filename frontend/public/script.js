@@ -1,18 +1,126 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const boton = document.getElementById("check-backend");
-    const salida = document.getElementById("backend-response");
+let loadMoreBtn = document.querySelector('#load-more');
+let currentItem = 4;
 
-    boton.addEventListener("click", async () => {
-        salida.textContent = "⌛ Conectando al backend...";
+const boxes = document.querySelectorAll('.box-container .box');
 
-        try {
-            const response = await fetch("http://backend-env-6e3f16d0.eba-prjwqm57.us-east-1.elasticbeanstalk.com/");
-            const data = await response.json();
+loadMoreBtn.onclick = () => {
 
-            salida.textContent = "Respuesta: " + data.message;
-
-        } catch (error) {
-            salida.textContent = "Error al conectar ❌ " + error;
+    for (let i = currentItem; i < currentItem + 4; i++) {
+        if (boxes[i]) { 
+            boxes[i].style.display = 'block';
         }
-    });
-});
+    }
+
+    currentItem += 4;
+
+    if (currentItem >= boxes.length) {
+        loadMoreBtn.style.display = 'none';
+    }
+};
+
+//carrito
+
+const carrito = document.getElementById('carrito');
+const elementos1 = document.getElementById('lista-1');
+const lista= document.querySelector('#lista-carrito tbody');
+const vaciarCarritoBtn = document.getElementById('vaciar-carrito');
+
+cargarEventListeners();
+
+function cargarEventListeners() {
+    elementos1.addEventListener('click', comprarElemento);
+    carrito.addEventListener('click', eliminarElemento);
+    vaciarCarritoBtn.addEventListener('click', vaciarCarrito);
+
+}
+
+function comprarElemento(e) {
+    e.preventDefault();
+
+    if(e.target.classList.contains('agregar-carrito')) {
+        const elemento = e.target.parentElement.parentElement;
+        leerDatosElemento(elemento);
+    }
+}
+
+function leerDatosElemento(elemento) {
+    const infoElemento = {
+        imagen: elemento.querySelector('img').src,
+        titulo: elemento.querySelector('h3').textContent,
+        precio: elemento.querySelector('.precio').textContent,
+        id: elemento.querySelector('a').getAttribute('data-id')
+
+    }
+    insertarCarrito(infoElemento)
+}
+
+function insertarCarrito(elemento) {
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+    
+        <td>
+           <img src="${elemento.imagen}" width=100 />
+        <td>
+    
+        <td>
+            ${elemento.titulo}
+        </td>
+
+        <td>
+            ${elemento.precio}
+        </td>
+
+        <td>
+
+            <a href="#" class="borrar" data-id="${elemento.id}" >X</a>
+
+        </td>
+
+    `;
+
+    lista.appendChild(row);
+
+
+}
+
+function eliminarElemento(e) {
+
+    e.preventDefault();
+    let elemento,
+        elementoId;
+
+    if(e.target.classList.contains('borrar')) {
+        e.target.parentElement.parentElement.remove();
+        elemento = e.target.parentElement.parentElement;
+        elementoId = elemento.querySelector('a').getAttribute('data-id');
+    }
+
+}
+
+function vaciarCarrito() {
+    while(lista.firstChild) {
+        lista.removeChild(lista.firstChild);
+    }
+    return false;
+}
+
+function generarHoras () {
+    const selectHora = document.getElementById("hora");
+    if(!selectHora) return;
+
+    selectHora.innerHTML = "";
+
+    let inicio = 10;
+    let fin = 21;
+    
+    for (let h = inicio; h <= fin; h++) {
+        let hora = `${h}:00`;
+        let opcion = document.createElement("option");
+        opcion.value = hora;
+        opcion.textContent = hora;
+        selectHora.appendChild(opcion);
+    }
+}
+
+generarHoras();
