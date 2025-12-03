@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reservas</title>
+
+    <link rel="stylesheet" href="style_reservas.css" />
+</head>
+
+<body>
+
+    <section class="reserva-container">
+
+        <h1>Reserva tu Mesa</h1>
+        <p>Selecciona una fecha y un horario disponible.</p>
+
+        <form id="form-reserva">
+
+            <!-- Calendario visual -->
+            <label for="fecha">Fecha</label>
+            <input type="date" id="fecha" name="fecha" required />
+
+            <!-- Campo manual -->
+            <label for="fecha-manual">Escribe la fecha (opcional)</label>
+            <input 
+                type="text" 
+                id="fecha-manual" 
+                name="fecha-manual"
+                placeholder="Ej: 2025-12-21"
+            />
+
+            <!-- Selector dinámico de horas -->
+            <label for="hora">Horario disponible</label>
+            <select id="hora" name="hora" required>
+                <option value="">Seleccione una fecha primero</option>
+            </select>
+
+            <label for="personas">Número de personas</label>
+            <input type="number" min="1" id="personas" name="personas" required />
+
+            <button class="btn" type="submit">Reservar</button>
+
+        </form>
+
+        <div id="msg"></div>
+
+    </section>
+
+    <script src="reservas.js"></script>
+</body>
+</html>
