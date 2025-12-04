@@ -1,0 +1,111 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
+}
+
+body {
+    display: flex;
+    background: #f3f3f3;
+}
+
+/* SIDEBAR */
+.sidebar {
+    width: 230px;
+    height: 100vh;
+    background: #2c3e50;
+    color: white;
+    padding: 20px;
+}
+
+.logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.sidebar ul li {
+    list-style: none;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.sidebar ul li:hover {
+    background: #34495e;
+}
+
+.logout {
+    margin-top: 40px;
+    width: 100%;
+    padding: 10px;
+    background: #c0392b;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.logout:hover {
+    background: #a93226;
+}
+
+/* MAIN CONTENT */
+.main {
+    flex: 1;
+    padding: 25px;
+}
+
+.section {
+    display: none;
+}
+
+.section.active {
+    display: block;
+}
+
+h1 {
+    margin-bottom: 15px;
+}
+
+/* Cards */
+.cards {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.card {
+    flex: 1;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Tablas */
+.tabla {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.tabla th, .tabla td {
+    padding: 10px;
+    border-bottom: 1px solid #ccc;
+}
+
+.btn {
+    padding: 10px 20px;
+    background: #27ae60;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.btn:hover {
+    background: #1e8449;
+}

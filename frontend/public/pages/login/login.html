@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingreso al Sistema</title>
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+
+    <div class="login-container">
+        <h2>Sistema Restaurante</h2>
+
+        <p class="subtitle">Ingrese según su rol</p>
+
+        <select id="rol" class="selector">
+            <option value="">Seleccione un rol</option>
+            <option value="admin">Administrador</option>
+            <option value="empleado">Empleado</option>
+        </select>
+
+        <!-- Formulario Admin -->
+        <form id="form-admin" class="form hidden">
+            <input type="email" placeholder="Correo" id="admin-email" required>
+            <input type="password" placeholder="Contraseña" id="admin-pass" required>
+            <button type="button" onclick="loginAdmin()">Ingresar</button>
+        </form>
+
+        <!-- Formulario Empleado -->
+        <form id="form-empleado" class="form hidden">
+            <input type="text" placeholder="ID de empleado" id="emp-id" required>
+            <input type="password" placeholder="PIN" id="emp-pin" required>
+            <button type="button" onclick="loginEmpleado()">Ingresar</button>
+        </form>
+
+    </div>
+
+    <script src="login.js"></script>
+
+</body>
+</html>

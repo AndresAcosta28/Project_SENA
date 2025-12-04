@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Administrador</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <h2 class="logo">Admin</h2>
+
+        <ul>
+            <li onclick="showSection('dashboard')">🏠 Dashboard</li>
+            <li onclick="showSection('empleados')">👨‍🍳 Empleados</li>
+            <li onclick="showSection('reservas')">📅 Reservas</li>
+            <li onclick="showSection('pedidos')">🍽️ Pedidos</li>
+            <li onclick="showSection('reportes')">📊 Reportes</li>
+        </ul>
+
+        <button class="logout" onclick="cerrarSesion()">
+            Cerrar sesión
+        </button>
+    </aside>
+
+    <!-- Contenido -->
+    <main class="main">
+
+        <!-- DASHBOARD -->
+        <section id="dashboard" class="section active">
+            <h1>Bienvenido, Administrador</h1>
+            <p>Seleccione una opción del menú para comenzar.</p>
+
+            <div class="cards">
+                <div class="card">Empleados activos: <span id="c-empleados">0</span></div>
+                <div class="card">Reservas hoy: <span id="c-reservas">0</span></div>
+                <div class="card">Pedidos en curso: <span id="c-pedidos">0</span></div>
+            </div>
+        </section>
+
+        <!-- EMPLEADOS -->
+        <section id="empleados" class="section">
+            <h1>Gestión de empleados</h1>
+
+            <button class="btn">Agregar empleado</button>
+
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Cargo</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="empleados-list">
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </section>
+
+        <!-- RESERVAS -->
+        <section id="reservas" class="section">
+            <h1>Gestión de reservas</h1>
+            <p>Aquí verás las reservas realizadas por los clientes.</p>
+
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Cliente</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Personas</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="reservas-list">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- PEDIDOS -->
+        <section id="pedidos" class="section">
+            <h1>Gestión de pedidos</h1>
+
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>ID Pedido</th>
+                        <th>Cliente</th>
+                        <th>Mesa</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="pedidos-list">
+                </tbody>
+            </table>
+        </section>
+
+        <!-- REPORTES -->
+        <section id="reportes" class="section">
+            <h1>Reportes</h1>
+            <p>Aquí podrás ver información analítica del restaurante.</p>
+
+            <div class="cards">
+                <div class="card">Ventas del día</div>
+                <div class="card">Platos más pedidos</div>
+                <div class="card">Rendimiento empleados</div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="admin.js"></script>
+
+</body>
+</html>
