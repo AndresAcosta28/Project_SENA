@@ -1,33 +1,38 @@
-const fechaInput = document.getElementById("fecha");
-const fechaManual = document.getElementById("fecha-manual");
-const horaSelect = document.getElementById("hora");
+document.addEventListener("DOMContentLoaded", () => {
 
-// Horarios ejemplo (luego vendrán desde la DB)
-const horarios = [
-    "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM",
-    "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM",
-];
+    const selectHora = document.getElementById("hora");
+    const fechaInput = document.getElementById("fecha");
 
-// Sincronizar fecha manual → calendario
-fechaManual.addEventListener("input", () => {
-    fechaInput.value = fechaManual.value;
-    cargarHorarios();
+    // Generar lista de horas (12:00 pm - 10:00 pm cada 30 minutos)
+    function generarHoras() {
+        const horas = [];
+        let inicio = 12; // 12 PM
+        let fin = 22; // 10 PM (formato 24 horas)
+
+        for (let h = inicio; h <= fin; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                let hora = h.toString().padStart(2, '0');
+                let minutos = m.toString().padStart(2, '0');
+                horas.push(`${hora}:${minutos}`);
+            }
+        }
+        return horas;
+    }
+
+    // Rellenar el select
+    function cargarHoras() {
+        const horas = generarHoras();
+        selectHora.innerHTML = ""; // limpiar
+
+        horas.forEach(h => {
+            const option = document.createElement("option");
+            option.value = h;
+            option.textContent = h;
+            selectHora.appendChild(option);
+        });
+    }
+
+    // Generar horas al cargar la página
+    cargarHoras();
+
 });
-
-// Sincronizar calendario → fecha manual
-fechaInput.addEventListener("change", () => {
-    fechaManual.value = fechaInput.value;
-    cargarHorarios();
-});
-
-// Cargar horarios disponibles
-function cargarHorarios() {
-    horaSelect.innerHTML = "";
-
-    horarios.forEach(h => {
-        const option = document.createElement("option");
-        option.value = h;
-        option.textContent = h;
-        horaSelect.appendChild(option);
-    });
-}
