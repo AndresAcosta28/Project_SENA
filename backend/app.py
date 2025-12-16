@@ -284,7 +284,6 @@ def obtener_clientes():
     } for c in clientes])
 
 # Inicialización de la base de datos
-@app.cli.command()
 def init_db():
     """Inicializa la base de datos"""
     db.create_all()
@@ -326,5 +325,25 @@ def seed_db():
     db.session.commit()
     print("Datos de ejemplo cargados")
 
+# Inicialización automática para Render
+def init_render_db():
+    """Inicializa la base de datos y opcionalmente carga datos de ejemplo en Render"""
+    with app.app_context():
+        try:
+            db.create_all()
+            print("Base de datos inicializada automáticamente en Render")
+            # Descomenta la siguiente línea si quieres cargar datos de ejemplo
+            # seed_db()
+        except Exception as e:
+            print("Base de datos ya estaba inicializada o hubo un error:", e)
+
+# Esto se ejecuta al iniciar la app
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Detecta si estamos en producción (Render)
+    if os.getenv("FLASK_ENV") == "production":
+        init_render_db()
+        # No habilitamos debug en producción
+        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    else:
+        # Local
+        app.run(debug=True, host='0.0.0.0', port=5000)
