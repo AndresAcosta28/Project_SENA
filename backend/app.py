@@ -64,6 +64,10 @@ class Plato(db.Model):
 
 # ===== RESERVAS =====
 
+@app.route('/')
+def index():
+    return jsonify({"mensaje": "API corriendo"}), 200
+
 @app.route('/api/reservas', methods=['GET'])
 def obtener_reservas():
     reservas = Reserva.query.all()
