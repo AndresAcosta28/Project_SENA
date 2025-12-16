@@ -64,6 +64,15 @@ class Plato(db.Model):
 
 # ===== RESERVAS =====
 
+@app.route('/health')
+def health_check():
+    try:
+        # Intentar una consulta simple
+        db.session.execute('SELECT 1')
+        return jsonify({"status": "ok"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "detail": str(e)}), 500
+
 @app.route('/')
 def index():
     return jsonify({"mensaje": "API corriendo"}), 200
