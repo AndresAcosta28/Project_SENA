@@ -2,7 +2,9 @@ from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import text
 import os
+
 
 app = Flask(__name__)
 
@@ -68,7 +70,7 @@ class Plato(db.Model):
 def health_check():
     try:
         # Intentar una consulta simple
-        db.session.execute('SELECT 1')
+        db.session.execute(text('SELECT 1'))
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         return jsonify({"status": "error", "detail": str(e)}), 500
