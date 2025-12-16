@@ -1,38 +1,84 @@
-document.addEventListener("DOMContentLoaded", () => {
+const API_URL = "https://restaurante-backend-s93j.onrender.com";
 
-    const selectHora = document.getElementById("hora");
-    const fechaInput = document.getElementById("fecha");
+const form = document.getElementById("form-reserva");
+const msg = document.getElementById("msg");
+const mesaSelect = document.getElementById("mesa");
+const horaSelect = document.getElementById("hora");
 
-    // Generar lista de horas (12:00 pm - 10:00 pm cada 30 minutos)
-    function generarHoras() {
-        const horas = [];
-        let inicio = 12; // 12 PM
-        let fin = 22; // 10 PM (formato 24 horas)
+// Horarios disponibles (puedes ajustar)
+const HORARIOS = [
+  "12:00", "13:00", "14:00",
+  "18:00", "19:00", "20:00", "21:00"
+];
 
-        for (let h = inicio; h <= fin; h++) {
-            for (let m = 0; m < 60; m += 30) {
-                let hora = h.toString().padStart(2, '0');
-                let minutos = m.toString().padStart(2, '0');
-                horas.push(`${hora}:${minutos}`);
-            }
-        }
-        return horas;
+// =========================
+// Cargar mesas desde backend
+// =========================
+fetch(`${API_URL}/api/mesas`)
+  .then(res => res.json())
+  .then(data => {
+    mesaSelect.innerHTML = '<option value="">Seleccione una mesa</option>';
+    data.forEach(mesa => {
+      if (mesa.disponible) {
+        const option = document.createElement("option");
+        option.value = mesa.id;
+        option.textContent = `Mesa ${mesa.numero} (${mesa.capacidad} personas)`;
+        mesaSelect.appendChild(option);
+      }
+    });
+  })
+  .catch(err => {
+    console.error(err);
+    mesaSelect.innerHTML = '<option>Error cargando mesas</option>';
+  });
+
+// =========================
+// Cargar horarios
+// =========================
+HORARIOS.forEach(hora => {
+  const option = document.createElement("option");
+  option.value = hora;
+  option.textContent = hora;
+  horaSelect.appendChild(option);
+});
+
+// =========================
+// Enviar reserva
+// =========================
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const data = {
+    nombre: document.getElementById("nombre").value,
+    email: document.getElementById("email").value,
+    telefono: document.getElementById("telefono").value,
+    mesa_id: parseInt(document.getElementById("mesa").value),
+    fecha_hora: `${document.getElementById("fecha").value}T${horaSelect.value}:00`,
+    num_personas: parseInt(document.getElementById("personas").value),
+    notas: ""
+  };
+
+  try {
+    const res = await fetch(`${API_URL}/api/reservas`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(data)
+    });
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(result.error || "Error al crear reserva");
     }
 
-    // Rellenar el select
-    function cargarHoras() {
-        const horas = generarHoras();
-        selectHora.innerHTML = ""; // limpiar
+    msg.innerHTML = "✅ Reserva creada correctamente";
+    msg.style.color = "green";
+    form.reset();
 
-        horas.forEach(h => {
-            const option = document.createElement("option");
-            option.value = h;
-            option.textContent = h;
-            selectHora.appendChild(option);
-        });
-    }
-
-    // Generar horas al cargar la página
-    cargarHoras();
-
+  } catch (error) {
+    msg.innerHTML = "❌ Error: " + error.message;
+    msg.style.color = "red";
+  }
 });

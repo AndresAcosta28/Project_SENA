@@ -10,43 +10,45 @@
 
 <body>
 
-    <section class="reserva-container">
+<section class="reserva-container">
 
-        <h1>Reserva tu Mesa</h1>
-        <p>Selecciona una fecha y un horario disponible.</p>
+    <h1>Reserva tu Mesa</h1>
+    <p>Selecciona una fecha y un horario disponible.</p>
 
-        <form id="form-reserva">
+    <form id="form-reserva">
 
-            <!-- Calendario visual -->
-            <label for="fecha">Fecha</label>
-            <input type="date" id="fecha" name="fecha" required />
+        <label>Nombre</label>
+        <input type="text" id="nombre" required />
 
-            <!-- Campo manual -->
-            <label for="fecha-manual">Escribe la fecha (opcional)</label>
-            <input 
-                type="text" 
-                id="fecha-manual" 
-                name="fecha-manual"
-                placeholder="Ej: 2025-12-21"
-            />
+        <label>Email</label>
+        <input type="email" id="email" required />
 
-            <!-- Selector dinámico de horas -->
-            <label for="hora">Horario disponible</label>
-            <select id="hora" name="hora" required>
-                <option value="">Seleccione una fecha primero</option>
-            </select>
+        <label>Teléfono</label>
+        <input type="text" id="telefono" required />
 
-            <label for="personas">Número de personas</label>
-            <input type="number" min="1" id="personas" name="personas" required />
+        <label>Fecha</label>
+        <input type="date" id="fecha" required />
 
-            <button class="btn" type="submit">Reservar</button>
+        <label>Hora</label>
+        <select id="hora" required>
+            <option value="">Seleccione una hora</option>
+        </select>
 
-        </form>
+        <label>Número de personas</label>
+        <input type="number" id="personas" min="1" required />
 
-        <div id="msg"></div>
+        <label>Mesa</label>
+        <select id="mesa" required>
+            <option value="">Cargando mesas...</option>
+        </select>
 
-    </section>
+        <button class="btn" type="submit">Reservar</button>
+    </form>
 
-    <script src="./pages/reservas/reservas.js"></script>
+    <div id="msg"></div>
+
+</section>
+
+<script src="./pages/reservas/reservas.js"></script>
 </body>
 </html>
