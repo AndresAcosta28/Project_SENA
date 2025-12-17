@@ -3,9 +3,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS  # ✅ IMPORTAR CORS
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
 from sqlalchemy import text
 import os
-
 
 app = Flask(__name__)
 
@@ -69,6 +69,33 @@ class Plato(db.Model):
     categoria_id = db.Column(db.Integer, db.ForeignKey('categorias.id'), nullable=False)
     disponible = db.Column(db.Boolean, default=True)
     imagen_url = db.Column(db.String(200))
+
+class Usuario(db.Model):
+    __tablename__ = 'usuarios'
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    rol = db.Column(db.String(20), nullable=False)  # 'admin' o 'empleado'
+    cargo = db.Column(db.String(50))  # 'mesero', 'cocinero', 'cajero', etc.
+    activo = db.Column(db.Boolean, default=True)
+    creado_en = db.Column(db.DateTime, default=datetime.utcnow)
+    asistencias = db.relationship('Asistencia', backref='usuario', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Asistencia(db.Model):
+    __tablename__ = 'asistencias'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    fecha = db.Column(db.Date, nullable=False, default=datetime.utcnow().date)
+    hora_entrada = db.Column(db.DateTime)
+    hora_salida = db.Column(db.DateTime)
+    notas = db.Column(db.Text)
 
 # Rutas de la API
 
@@ -371,6 +398,253 @@ def obtener_clientes():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ===== RUTAS DE AUTENTICACIÓN =====
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Login para admin y empleados"""
+    try:
+        data = request.json
+        email = data.get('email')
+        password = data.get('password')
+        
+        # Verificar admin hardcodeado
+        if email == 'admin@restaurante.com' and password == 'admin123':
+            return jsonify({
+                'mensaje': 'Login exitoso',
+                'usuario': {
+                    'id': 0,
+                    'nombre': 'Administrador',
+                    'email': 'admin@restaurante.com',
+                    'rol': 'admin'
+                }
+            }), 200
+        
+        # Buscar empleado en la BD
+        usuario = Usuario.query.filter_by(email=email, activo=True).first()
+        
+        if not usuario or not usuario.check_password(password):
+            return jsonify({'error': 'Email o contraseña incorrectos'}), 401
+        
+        return jsonify({
+            'mensaje': 'Login exitoso',
+            'usuario': {
+                'id': usuario.id,
+                'nombre': usuario.nombre,
+                'email': usuario.email,
+                'rol': usuario.rol,
+                'cargo': usuario.cargo
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ===== RUTAS DE EMPLEADOS (Solo Admin) =====
+
+@app.route('/api/empleados', methods=['GET'])
+def obtener_empleados():
+    """Obtener todos los empleados"""
+    try:
+        empleados = Usuario.query.filter_by(rol='empleado').all()
+        return jsonify([{
+            'id': e.id,
+            'nombre': e.nombre,
+            'email': e.email,
+            'cargo': e.cargo,
+            'activo': e.activo,
+            'creado_en': e.creado_en.isoformat()
+        } for e in empleados]), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/empleados', methods=['POST'])
+def crear_empleado():
+    """Crear nuevo empleado (solo admin)"""
+    try:
+        data = request.json
+        
+        # Verificar si el email ya existe
+        if Usuario.query.filter_by(email=data['email']).first():
+            return jsonify({'error': 'El email ya está registrado'}), 400
+        
+        nuevo_empleado = Usuario(
+            nombre=data['nombre'],
+            email=data['email'],
+            rol='empleado',
+            cargo=data.get('cargo', 'empleado')
+        )
+        nuevo_empleado.set_password(data['password'])
+        
+        db.session.add(nuevo_empleado)
+        db.session.commit()
+        
+        return jsonify({
+            'mensaje': 'Empleado creado exitosamente',
+            'id': nuevo_empleado.id
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/empleados/<int:id>', methods=['PUT'])
+def actualizar_empleado(id):
+    """Actualizar empleado"""
+    try:
+        empleado = Usuario.query.get_or_404(id)
+        data = request.json
+        
+        if 'nombre' in data:
+            empleado.nombre = data['nombre']
+        if 'email' in data:
+            empleado.email = data['email']
+        if 'cargo' in data:
+            empleado.cargo = data['cargo']
+        if 'activo' in data:
+            empleado.activo = data['activo']
+        if 'password' in data and data['password']:
+            empleado.set_password(data['password'])
+        
+        db.session.commit()
+        return jsonify({'mensaje': 'Empleado actualizado exitosamente'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/empleados/<int:id>', methods=['DELETE'])
+def eliminar_empleado(id):
+    """Eliminar empleado (desactivar)"""
+    try:
+        empleado = Usuario.query.get_or_404(id)
+        empleado.activo = False  # Desactivar en lugar de eliminar
+        db.session.commit()
+        return jsonify({'mensaje': 'Empleado desactivado exitosamente'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+# ===== RUTAS DE ASISTENCIA =====
+
+@app.route('/api/asistencia/entrada', methods=['POST'])
+def registrar_entrada():
+    """Registrar entrada de empleado"""
+    try:
+        data = request.json
+        usuario_id = data['usuario_id']
+        
+        # Verificar si ya registró entrada hoy
+        hoy = datetime.utcnow().date()
+        asistencia_hoy = Asistencia.query.filter_by(
+            usuario_id=usuario_id,
+            fecha=hoy
+        ).first()
+        
+        if asistencia_hoy and asistencia_hoy.hora_entrada:
+            return jsonify({'error': 'Ya registraste tu entrada hoy'}), 400
+        
+        if asistencia_hoy:
+            # Actualizar entrada existente
+            asistencia_hoy.hora_entrada = datetime.utcnow()
+        else:
+            # Crear nueva asistencia
+            asistencia_hoy = Asistencia(
+                usuario_id=usuario_id,
+                fecha=hoy,
+                hora_entrada=datetime.utcnow()
+            )
+            db.session.add(asistencia_hoy)
+        
+        db.session.commit()
+        
+        return jsonify({
+            'mensaje': 'Entrada registrada exitosamente',
+            'hora': asistencia_hoy.hora_entrada.strftime('%H:%M:%S')
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/asistencia/salida', methods=['POST'])
+def registrar_salida():
+    """Registrar salida de empleado"""
+    try:
+        data = request.json
+        usuario_id = data['usuario_id']
+        
+        # Buscar asistencia de hoy
+        hoy = datetime.utcnow().date()
+        asistencia_hoy = Asistencia.query.filter_by(
+            usuario_id=usuario_id,
+            fecha=hoy
+        ).first()
+        
+        if not asistencia_hoy or not asistencia_hoy.hora_entrada:
+            return jsonify({'error': 'Debes registrar tu entrada primero'}), 400
+        
+        if asistencia_hoy.hora_salida:
+            return jsonify({'error': 'Ya registraste tu salida hoy'}), 400
+        
+        asistencia_hoy.hora_salida = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'mensaje': 'Salida registrada exitosamente',
+            'hora': asistencia_hoy.hora_salida.strftime('%H:%M:%S')
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/asistencia/mis-registros/<int:usuario_id>', methods=['GET'])
+def obtener_mis_registros(usuario_id):
+    """Obtener registros de asistencia del empleado"""
+    try:
+        # Obtener últimos 7 días
+        desde = datetime.utcnow().date() - timedelta(days=7)
+        
+        asistencias = Asistencia.query.filter(
+            Asistencia.usuario_id == usuario_id,
+            Asistencia.fecha >= desde
+        ).order_by(Asistencia.fecha.desc()).all()
+        
+        return jsonify([{
+            'id': a.id,
+            'fecha': a.fecha.isoformat(),
+            'hora_entrada': a.hora_entrada.strftime('%H:%M:%S') if a.hora_entrada else None,
+            'hora_salida': a.hora_salida.strftime('%H:%M:%S') if a.hora_salida else None,
+            'notas': a.notas
+        } for a in asistencias]), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/asistencia/todas', methods=['GET'])
+def obtener_todas_asistencias():
+    """Obtener todas las asistencias (solo admin)"""
+    try:
+        # Obtener últimos 30 días
+        desde = datetime.utcnow().date() - timedelta(days=30)
+        
+        asistencias = Asistencia.query.filter(
+            Asistencia.fecha >= desde
+        ).order_by(Asistencia.fecha.desc()).all()
+        
+        return jsonify([{
+            'id': a.id,
+            'empleado': {'id': a.usuario.id, 'nombre': a.usuario.nombre},
+            'fecha': a.fecha.isoformat(),
+            'hora_entrada': a.hora_entrada.strftime('%H:%M:%S') if a.hora_entrada else None,
+            'hora_salida': a.hora_salida.strftime('%H:%M:%S') if a.hora_salida else None,
+            'notas': a.notas
+        } for a in asistencias]), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Inicialización de la base de datos
 def init_db():
     """Inicializa la base de datos"""
@@ -431,6 +705,28 @@ def init_render_db():
                 
         except Exception as e:
             print(f"❌ Error al inicializar base de datos: {e}")
+
+def seed_empleados():
+    """Crear empleados de prueba"""
+    empleados = [
+        {'nombre': 'Carlos Pérez', 'email': 'carlos@restaurante.com', 'password': '123456', 'cargo': 'mesero'},
+        {'nombre': 'Ana García', 'email': 'ana@restaurante.com', 'password': '123456', 'cargo': 'cocinera'},
+        {'nombre': 'Luis Rodríguez', 'email': 'luis@restaurante.com', 'password': '123456', 'cargo': 'cajero'},
+    ]
+    
+    for emp in empleados:
+        if not Usuario.query.filter_by(email=emp['email']).first():
+            nuevo = Usuario(
+                nombre=emp['nombre'],
+                email=emp['email'],
+                rol='empleado',
+                cargo=emp['cargo']
+            )
+            nuevo.set_password(emp['password'])
+            db.session.add(nuevo)
+    
+    db.session.commit()
+    print("✅ Empleados de prueba creados")
 
 # Esto se ejecuta al iniciar la app
 if __name__ == '__main__':

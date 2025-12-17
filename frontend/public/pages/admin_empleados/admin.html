@@ -3,121 +3,381 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Administrador</title>
-    <link rel="stylesheet" href="admin.css">
+    <title>Gestión de Empleados</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            color: #333;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        table th {
+            background-color: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        table tr:hover {
+            background-color: #f9f9f9;
+        }
+        
+        .badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-activo {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .badge-inactivo {
+            background: #ffebee;
+            color: #c62828;
+        }
+        
+        .btn-editar {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        
+        .btn-eliminar {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn-cerrar {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .mensaje {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+        }
+        
+        .mensaje.error {
+            background-color: #fee;
+            color: #c33;
+        }
+        
+        .mensaje.exito {
+            background-color: #efe;
+            color: #3c3;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+    </style>
 </head>
-
 <body>
-
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        <h2 class="logo">Admin</h2>
-
-        <ul>
-            <li onclick="showSection('dashboard')">🏠 Dashboard</li>
-            <li onclick="showSection('empleados')">👨‍🍳 Empleados</li>
-            <li onclick="showSection('reservas')">📅 Reservas</li>
-            <li onclick="showSection('pedidos')">🍽️ Pedidos</li>
-            <li onclick="showSection('reportes')">📊 Reportes</li>
-        </ul>
-
-        <button class="logout" onclick="cerrarSesion()">
-            Cerrar sesión
-        </button>
-    </aside>
-
-    <!-- Contenido -->
-    <main class="main">
-
-        <!-- DASHBOARD -->
-        <section id="dashboard" class="section active">
-            <h1>Bienvenido, Administrador</h1>
-            <p>Seleccione una opción del menú para comenzar.</p>
-
-            <div class="cards">
-                <div class="card">Empleados activos: <span id="c-empleados">0</span></div>
-                <div class="card">Reservas hoy: <span id="c-reservas">0</span></div>
-                <div class="card">Pedidos en curso: <span id="c-pedidos">0</span></div>
+    <div class="header">
+        <h1>👨‍💼 Gestión de Empleados</h1>
+        <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+    </div>
+    
+    <div class="container">
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="cambiarTab('empleados')">👥 Empleados</button>
+            <button class="tab" onclick="cambiarTab('asistencias')">📊 Asistencias</button>
+        </div>
+        
+        <!-- Tab Empleados -->
+        <div id="tab-empleados" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Lista de Empleados</h2>
+                    <button class="btn-primary" onclick="mostrarFormulario()">+ Nuevo Empleado</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Email</th>
+                            <th>Cargo</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-empleados">
+                        <tr>
+                            <td colspan="5" style="text-align: center;">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </section>
-
-        <!-- EMPLEADOS -->
-        <section id="empleados" class="section">
-            <h1>Gestión de empleados</h1>
-
-            <button class="btn">Agregar empleado</button>
-
-            <table class="tabla">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Cargo</th>
-                        <th>Estado</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody id="empleados-list">
-                    <!-- Datos dinámicos -->
-                </tbody>
-            </table>
-        </section>
-
-        <!-- RESERVAS -->
-        <section id="reservas" class="section">
-            <h1>Gestión de reservas</h1>
-            <p>Aquí verás las reservas realizadas por los clientes.</p>
-
-            <table class="tabla">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Cliente</th>
-                        <th>Fecha</th>
-                        <th>Hora</th>
-                        <th>Personas</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody id="reservas-list">
-                </tbody>
-            </table>
-        </section>
-
-        <!-- PEDIDOS -->
-        <section id="pedidos" class="section">
-            <h1>Gestión de pedidos</h1>
-
-            <table class="tabla">
-                <thead>
-                    <tr>
-                        <th>ID Pedido</th>
-                        <th>Cliente</th>
-                        <th>Mesa</th>
-                        <th>Total</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody id="pedidos-list">
-                </tbody>
-            </table>
-        </section>
-
-        <!-- REPORTES -->
-        <section id="reportes" class="section">
-            <h1>Reportes</h1>
-            <p>Aquí podrás ver información analítica del restaurante.</p>
-
-            <div class="cards">
-                <div class="card">Ventas del día</div>
-                <div class="card">Platos más pedidos</div>
-                <div class="card">Rendimiento empleados</div>
+        </div>
+        
+        <!-- Tab Asistencias -->
+        <div id="tab-asistencias" class="tab-content">
+            <div class="card">
+                <h2>Registro de Asistencias (Últimos 30 días)</h2>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Empleado</th>
+                            <th>Fecha</th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-asistencias">
+                        <tr>
+                            <td colspan="5" style="text-align: center;">Cargando...</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </section>
-
-    </main>
-
-    <script src="admin.js"></script>
-
+        </div>
+    </div>
+    
+    <!-- Modal para crear/editar empleado -->
+    <div id="modal-empleado" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="titulo-modal">Nuevo Empleado</h2>
+                <button class="btn-cerrar" onclick="cerrarFormulario()">×</button>
+            </div>
+            
+            <div id="mensaje-form" class="mensaje"></div>
+            
+            <form id="form-empleado">
+                <input type="hidden" id="empleado-id">
+                
+                <div class="form-group">
+                    <label for="nombre">Nombre completo</label>
+                    <input type="text" id="nombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cargo">Cargo</label>
+                    <select id="cargo" required>
+                        <option value="">Seleccione un cargo</option>
+                        <option value="mesero">Mesero</option>
+                        <option value="cocinero">Cocinero</option>
+                        <option value="cajero">Cajero</option>
+                        <option value="bartender">Bartender</option>
+                        <option value="gerente">Gerente</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" placeholder="Dejar vacío para mantener actual">
+                </div>
+                
+                <button type="submit" class="btn-primary" style="width: 100%;">Guardar</button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        function cambiarTab(tabName) {
+            // Ocultar todos los tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Mostrar tab seleccionado
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Si es tab de asistencias, cargar datos
+            if (tabName === 'asistencias') {
+                cargarAsistencias();
+            }
+        }
+    </script>
+    
+    <script src="./pages/admin/admin-empleados.js"></script>
 </body>
 </html>

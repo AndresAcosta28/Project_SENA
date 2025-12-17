@@ -3,39 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingreso al Sistema</title>
-    <link rel="stylesheet" href="./pages/login/login.css">
+    <title>Login - Restaurante</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-container h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .login-container p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .mensaje {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+        }
+        
+        .mensaje.error {
+            background-color: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+        
+        .mensaje.exito {
+            background-color: #efe;
+            color: #3c3;
+            border: 1px solid #cfc;
+        }
+        
+        .credenciales-demo {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .credenciales-demo h3 {
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        .credenciales-demo p {
+            margin: 5px 0;
+            color: #666;
+            text-align: left;
+        }
+    </style>
 </head>
 <body>
-
     <div class="login-container">
-        <h2>Sistema Restaurante</h2>
-
-        <p class="subtitle">Ingrese según su rol</p>
-
-        <select id="rol" class="selector">
-            <option value="">Seleccione un rol</option>
-            <option value="admin">Administrador</option>
-            <option value="empleado">Empleado</option>
-        </select>
-
-        <!-- Formulario Admin -->
-        <form id="form-admin" class="form hidden">
-            <input type="email" placeholder="Correo" id="admin-email" required>
-            <input type="password" placeholder="Contraseña" id="admin-pass" required>
-            <button type="button" onclick="loginAdmin()">Ingresar</button>
+        <h1>🍴 Restaurante</h1>
+        <p>Ingresa tus credenciales</p>
+        
+        <div id="mensaje" class="mensaje"></div>
+        
+        <form id="form-login">
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" required>
+            </div>
+            
+            <button type="submit" class="btn">Iniciar Sesión</button>
         </form>
-
-        <!-- Formulario Empleado -->
-        <form id="form-empleado" class="form hidden">
-            <input type="text" placeholder="ID de empleado" id="emp-id" required>
-            <input type="password" placeholder="PIN" id="emp-pin" required>
-            <button type="button" onclick="loginEmpleado()">Ingresar</button>
-        </form>
-
+        
+        <div class="credenciales-demo">
+            <h3>🔐 Credenciales de prueba:</h3>
+            <p><strong>Admin:</strong> admin@restaurante.com / admin123</p>
+            <p><strong>Empleado:</strong> carlos@restaurante.com / 123456</p>
+        </div>
     </div>
-
-    <script src="./pages/login/login.js"></script>
-
+    
+    <script>
+        const API_URL = "https://restaurante-backend-s93j.onrender.com";
+        
+        const form = document.getElementById("form-login");
+        const mensaje = document.getElementById("mensaje");
+        
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/login`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.error || "Error al iniciar sesión");
+                }
+                
+                // Guardar usuario en localStorage
+                localStorage.setItem("usuario", JSON.stringify(data.usuario));
+                
+                // Mostrar mensaje de éxito
+                mensaje.textContent = "✅ Login exitoso. Redirigiendo...";
+                mensaje.className = "mensaje exito";
+                mensaje.style.display = "block";
+                
+                // Redirigir según el rol
+                setTimeout(() => {
+                    if (data.usuario.rol === "admin") {
+                        window.location.href = "/admin.html";
+                    } else {
+                        window.location.href = "/empleado.html";
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                mensaje.textContent = "❌ " + error.message;
+                mensaje.className = "mensaje error";
+                mensaje.style.display = "block";
+            }
+        });
+    </script>
 </body>
 </html>
