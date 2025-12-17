@@ -692,19 +692,26 @@ def init_render_db():
     """Inicializa la base de datos y opcionalmente carga datos de ejemplo en Render"""
     with app.app_context():
         try:
+            # FORZAR creación de todas las tablas
             db.create_all()
-            print("✅ Base de datos inicializada automáticamente en Render")
+            print("✅ Tablas verificadas/creadas")
             
             # Verificar si ya hay mesas
             mesas_count = Mesa.query.count()
             if mesas_count == 0:
-                print("⚠️ No hay mesas en la base de datos. Cargando datos de ejemplo...")
+                print("⚠️ No hay mesas. Cargando datos de ejemplo...")
                 seed_db()
+            
+            # Verificar si ya hay empleados
+            empleados_count = Usuario.query.count()
+            if empleados_count == 0:
+                print("⚠️ No hay empleados. Creando empleados de prueba...")
+                seed_empleados()
             else:
-                print(f"✅ Base de datos tiene {mesas_count} mesas")
+                print(f"✅ Base de datos tiene {empleados_count} empleados")
                 
         except Exception as e:
-            print(f"❌ Error al inicializar base de datos: {e}")
+            print(f"❌ Error al inicializar: {e}")
 
 def seed_empleados():
     """Crear empleados de prueba"""
