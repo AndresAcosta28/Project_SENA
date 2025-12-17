@@ -1,55 +1,112 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Reservas</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reservas - Restaurante</title>
     <link rel="stylesheet" href="./pages/reservas/style_reservas.css">
 </head>
-
 <body>
-
-<section class="reserva-container">
-
-    <h1>Reserva tu Mesa</h1>
-    <p>Selecciona una fecha y un horario disponible.</p>
-
-    <form id="form-reserva">
-
-        <label>Nombre</label>
-        <input type="text" id="nombre" required />
-
-        <label>Email</label>
-        <input type="email" id="email" required />
-
-        <label>Teléfono</label>
-        <input type="text" id="telefono" required />
-
-        <label>Fecha</label>
-        <input type="date" id="fecha" required />
-
-        <label>Hora</label>
-        <select id="hora" required>
-            <option value="">Seleccione una hora</option>
-        </select>
-
-        <label>Número de personas</label>
-        <input type="number" id="personas" min="1" required />
-
-        <label>Mesa</label>
-        <select id="mesa" required>
-            <option value="">Cargando mesas...</option>
-        </select>
-
-        <button class="btn" type="submit">Reservar</button>
-    </form>
-
-    <div id="msg"></div>
-
-</section>
-
-<script src="./pages/reservas/reservas.js" defer></script>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ Sistema de Reservas</h1>
+            <p>Gestiona tus reservas de manera fácil y rápida</p>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="cambiarTab('calendario')">📅 Nueva Reserva</button>
+            <button class="tab" onclick="cambiarTab('lista')">📋 Mis Reservas</button>
+        </div>
+        
+        <div class="content">
+            <!-- Tab Calendario/Nueva Reserva -->
+            <div id="tab-calendario" class="tab-content active">
+                <div class="calendario-header">
+                    <h2 id="mes-actual"></h2>
+                    <div class="calendario-nav">
+                        <button class="btn-nav" onclick="mesAnterior()">← Anterior</button>
+                        <button class="btn-nav" onclick="hoy()">Hoy</button>
+                        <button class="btn-nav" onclick="mesSiguiente()">Siguiente →</button>
+                    </div>
+                </div>
+                
+                <div class="calendario" id="calendario"></div>
+                
+                <div id="form-container" style="display: none;">
+                    <div class="info-seleccion">
+                        <h3>📅 Fecha seleccionada: <span id="fecha-seleccionada"></span></h3>
+                        <p>Completa los datos para tu reserva</p>
+                    </div>
+                    
+                    <form class="form-reserva" id="form-reserva">
+                        <div class="form-group">
+                            <label>Nombre completo</label>
+                            <input type="text" id="nombre" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="email" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Teléfono</label>
+                            <input type="tel" id="telefono" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Número de personas</label>
+                            <input type="number" id="personas" min="1" max="20" required>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label>Selecciona un horario disponible</label>
+                            <div class="horarios-grid" id="horarios-grid"></div>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label>Mesa</label>
+                            <select id="mesa" required>
+                                <option value="">Primero selecciona horario y personas</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group full-width">
+                            <label>Notas adicionales (opcional)</label>
+                            <input type="text" id="notas" placeholder="Ej: Alergia, ocasión especial, etc.">
+                        </div>
+                        
+                        <button type="submit" class="btn-submit">✅ Confirmar Reserva</button>
+                    </form>
+                    
+                    <div id="mensaje" class="mensaje"></div>
+                </div>
+            </div>
+            
+            <!-- Tab Lista de Reservas -->
+            <div id="tab-lista" class="tab-content">
+                <h2>📋 Todas las Reservas</h2>
+                <table class="tabla-reservas">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Fecha y Hora</th>
+                            <th>Mesa</th>
+                            <th>Personas</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-reservas-body">
+                        <tr>
+                            <td colspan="6" class="loading">⏳ Cargando reservas...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="./pages/reservas/reservas.js"></script>
 </body>
 </html>
-
