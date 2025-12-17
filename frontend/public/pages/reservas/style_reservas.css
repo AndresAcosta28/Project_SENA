@@ -353,32 +353,172 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
-    .form-reserva {
-        grid-template-columns: 1fr;
+    body {
+        padding: 10px;
     }
     
-    .horarios-grid {
-        grid-template-columns: repeat(2, 1fr);
+    .header h1 {
+        font-size: 24px;
+    }
+    
+    .header p {
+        font-size: 14px;
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+    
+    .tab {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+    
+    .content {
+        padding: 15px;
+    }
+    
+    /* Calendario más compacto */
+    .calendario-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .calendario-header h2 {
+        font-size: 18px;
+    }
+    
+    .calendario-nav {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .btn-nav {
+        padding: 8px 12px;
+        font-size: 12px;
     }
     
     .calendario {
-        gap: 5px;
+        gap: 4px;
+    }
+    
+    .dia-header {
+        padding: 5px;
+        font-size: 12px;
     }
     
     .dia {
-        padding: 4px;
+        padding: 4px 2px;
+        min-height: 50px;
     }
     
     .dia-numero {
         font-size: 14px;
     }
     
-    .tabla-reservas {
+    .dia-reservas {
+        font-size: 8px;
+        padding: 1px 4px;
+    }
+    
+    /* Formulario */
+    .form-reserva {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-group label {
         font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group select {
+        font-size: 14px;
+        padding: 10px;
+    }
+    
+    .horarios-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .horario-btn {
+        padding: 10px;
+        font-size: 14px;
+    }
+    
+    .btn-submit {
+        font-size: 16px;
+    }
+    
+    .info-seleccion h3 {
+        font-size: 16px;
+    }
+    
+    .info-seleccion p {
+        font-size: 14px;
+    }
+    
+    /* Tabla de reservas - Scroll horizontal */
+    .tab-content h2 {
+        font-size: 20px;
+    }
+    
+    .tabla-reservas-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .tabla-reservas {
+        font-size: 12px;
+        min-width: 600px;
     }
     
     .tabla-reservas th,
     .tabla-reservas td {
-        padding: 8px;
+        padding: 8px 6px;
+    }
+    
+    .btn-cancelar {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    .badge {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+}
+
+/* Para pantallas muy pequeñas */
+@media (max-width: 480px) {
+    .calendario {
+        gap: 2px;
+    }
+    
+    .dia {
+        min-height: 45px;
+        padding: 2px;
+    }
+    
+    .dia-numero {
+        font-size: 12px;
+    }
+    
+    .dia-reservas {
+        display: none;
+    }
+    
+    .dia.con-reservas::after {
+        content: '•';
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        color: #ff4444;
+        font-size: 20px;
+        line-height: 10px;
+    }
+    
+    .horarios-grid {
+        grid-template-columns: 1fr;
     }
 }
