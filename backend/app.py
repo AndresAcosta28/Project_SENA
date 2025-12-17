@@ -688,62 +688,150 @@ def seed_db():
     print("Datos de ejemplo cargados")
 
 # Inicialización automática para Render
-def init_render_db():
-    """Inicializa la base de datos y opcionalmente carga datos de ejemplo en Render"""
+# ============================================
+# INICIALIZACIÓN AUTOMÁTICA DE LA BASE DE DATOS
+# ============================================
+
+def inicializar_base_datos():
+    """Inicializa las tablas y datos de prueba"""
     with app.app_context():
         try:
-            # FORZAR creación de todas las tablas
+            print("=" * 50)
+            print("🔄 INICIANDO CONFIGURACIÓN DE BASE DE DATOS")
+            print("=" * 50)
+            
+            # PASO 1: Crear todas las tablas
             db.create_all()
-            print("✅ Tablas verificadas/creadas")
+            print("✅ Tablas creadas/verificadas")
             
-            # Verificar si ya hay mesas
-            mesas_count = Mesa.query.count()
-            if mesas_count == 0:
-                print("⚠️ No hay mesas. Cargando datos de ejemplo...")
-                seed_db()
+            # PASO 2: Verificar qué tablas existen
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            tablas = inspector.get_table_names()
+            print(f"📋 Tablas en la base de datos: {tablas}")
             
-            # Verificar si ya hay empleados
-            empleados_count = Usuario.query.count()
-            if empleados_count == 0:
-                print("⚠️ No hay empleados. Creando empleados de prueba...")
-                seed_empleados()
-            else:
-                print(f"✅ Base de datos tiene {empleados_count} empleados")
+            # PASO 3: Verificar si hay datos
+            try:
+                mesas_count = Mesa.query.count()
+                empleados_count = Usuario.query.count()
+                categorias_count = Categoria.query.count()
                 
+                print(f"📊 Mesas: {mesas_count}")
+                print(f"📊 Empleados: {empleados_count}")
+                print(f"📊 Categorías: {categorias_count}")
+                
+                # PASO 4: Crear datos de ejemplo si no existen
+                if mesas_count == 0:
+                    print("⚠️ No hay mesas. Creando mesas de ejemplo...")
+                    mesas = [
+                        Mesa(numero=1, capacidad=2),
+                        Mesa(numero=2, capacidad=4),
+                        Mesa(numero=3, capacidad=4),
+                        Mesa(numero=4, capacidad=6),
+                        Mesa(numero=5, capacidad=8)
+                    ]
+                    db.session.add_all(mesas)
+                    db.session.commit()
+                    print("✅ Mesas creadas")
+                
+                if categorias_count == 0:
+                    print("⚠️ No hay categorías. Creando categorías...")
+                    categorias = [
+                        Categoria(nombre='Entradas'),
+                        Categoria(nombre='Platos Principales'),
+                        Categoria(nombre='Postres'),
+                        Categoria(nombre='Bebidas')
+                    ]
+                    db.session.add_all(categorias)
+                    db.session.commit()
+                    print("✅ Categorías creadas")
+                    
+                    # Crear platos después de categorías
+                    platos = [
+                        Plato(nombre='Ensalada César', descripcion='Lechuga romana con aderezo césar', precio=8.50, categoria_id=1),
+                        Plato(nombre='Sopa del día', descripcion='Consultar con el mesero', precio=6.00, categoria_id=1),
+                        Plato(nombre='Filete de res', descripcion='Con papas y vegetales', precio=25.00, categoria_id=2),
+                        Plato(nombre='Pasta carbonara', descripcion='Pasta fresca con salsa carbonara', precio=15.00, categoria_id=2),
+                        Plato(nombre='Tiramisú', descripcion='Postre italiano clásico', precio=7.00, categoria_id=3),
+                        Plato(nombre='Jugo natural', descripcion='Varios sabores', precio=4.00, categoria_id=4)
+                    ]
+                    db.session.add_all(platos)
+                    db.session.commit()
+                    print("✅ Platos creados")
+                
+                if empleados_count == 0:
+                    print("⚠️ No hay empleados. Creando empleados de prueba...")
+                    empleados = [
+                        {
+                            'nombre': 'Carlos Pérez',
+                            'email': 'carlos@restaurante.com',
+                            'password': '123456',
+                            'cargo': 'mesero'
+                        },
+                        {
+                            'nombre': 'Ana García',
+                            'email': 'ana@restaurante.com',
+                            'password': '123456',
+                            'cargo': 'cocinera'
+                        },
+                        {
+                            'nombre': 'Luis Rodríguez',
+                            'email': 'luis@restaurante.com',
+                            'password': '123456',
+                            'cargo': 'cajero'
+                        }
+                    ]
+                    
+                    for emp_data in empleados:
+                        empleado = Usuario(
+                            nombre=emp_data['nombre'],
+                            email=emp_data['email'],
+                            rol='empleado',
+                            cargo=emp_data['cargo']
+                        )
+                        empleado.set_password(emp_data['password'])
+                        db.session.add(empleado)
+                    
+                    db.session.commit()
+                    print("✅ Empleados de prueba creados")
+                    
+                    # Mostrar empleados creados
+                    empleados_db = Usuario.query.all()
+                    for emp in empleados_db:
+                        print(f"   👤 {emp.nombre} - {emp.email} - {emp.cargo}")
+                
+            except Exception as e:
+                print(f"⚠️ Error al verificar/crear datos: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            print("=" * 50)
+            print("✅ CONFIGURACIÓN COMPLETADA")
+            print("=" * 50)
+            
         except Exception as e:
-            print(f"❌ Error al inicializar: {e}")
+            print(f"❌ ERROR CRÍTICO en inicialización: {e}")
+            import traceback
+            traceback.print_exc()
 
-def seed_empleados():
-    """Crear empleados de prueba"""
-    empleados = [
-        {'nombre': 'Carlos Pérez', 'email': 'carlos@restaurante.com', 'password': '123456', 'cargo': 'mesero'},
-        {'nombre': 'Ana García', 'email': 'ana@restaurante.com', 'password': '123456', 'cargo': 'cocinera'},
-        {'nombre': 'Luis Rodríguez', 'email': 'luis@restaurante.com', 'password': '123456', 'cargo': 'cajero'},
-    ]
-    
-    for emp in empleados:
-        if not Usuario.query.filter_by(email=emp['email']).first():
-            nuevo = Usuario(
-                nombre=emp['nombre'],
-                email=emp['email'],
-                rol='empleado',
-                cargo=emp['cargo']
-            )
-            nuevo.set_password(emp['password'])
-            db.session.add(nuevo)
-    
-    db.session.commit()
-    print("✅ Empleados de prueba creados")
+# ============================================
+# EJECUTAR INICIALIZACIÓN AL IMPORTAR EL MÓDULO
+# ============================================
+# Esto se ejecuta SIEMPRE, incluso cuando Gunicorn importa app.py
+inicializar_base_datos()
 
-# Esto se ejecuta al iniciar la app
+# ============================================
+# ARRANQUE DEL SERVIDOR
+# ============================================
 if __name__ == '__main__':
-    # Inicializar DB en cualquier entorno
-    init_render_db()
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.getenv("FLASK_ENV") != "production"
     
-    # Detecta si estamos en producción (Render)
-    if os.getenv("FLASK_ENV") == "production":
-        # No habilitamos debug en producción
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    else:
-        # Local
-        app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"🚀 Iniciando servidor en puerto {port}")
+    print(f"🔧 Modo debug: {debug}")
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug
+    )
